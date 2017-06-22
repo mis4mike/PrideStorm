@@ -1,4 +1,3 @@
-//#include <LoudClouds.h>
 #include <FastLED.h>
 
 #define COLOR_ORDER GRB
@@ -45,21 +44,21 @@ bool buttonDown = false;
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 
-int stormCountdown = 300;
+int stormCountdown = 5;
 int trickCountdown = 0;
 int currentStorm = 0;
 int currentTrick = 0;
 int inputStatus = 0;
 bool trickButtonExhausted = false;
-
-int testCount = 0;
-
+bool stormInProgress = false;
+bool trickInProgress = false;
+int stormClock;
 
 CRGBPalette16 firePalettes[3]; 
 CRGB flashColors[3];
 
 
-int currentFirePalette = 0;
+int currentFlamePalette = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -96,57 +95,43 @@ void loadPalettes(){
 }
 
 void debugLoop() {
-  testCount++;
-  if(testCount >= 100){
-    testCount = 0;
-    Serial.print(LEDS_PER_STRIP);
-    for(int i = 0; i < LEDS_PER_STRIP; i++) {
-      Serial.print(i);
-      Serial.print(":   ");
-      Serial.print(leds[0][i]);
-      Serial.print("     ");
-      Serial.print(leds[1][i]);
-      Serial.print("\n");
-    }
-  }
+  Serial.println(stormCountdown);
+  Serial.println(stormClock);
+  Serial.println(stormInProgress);
 }
 
 void loop() {
  
-  if(false){
+  if(true){
     debugLoop();
   }
   
-  stormCountdown--;
-  trickCountdown--;
-  inputStatus = checkForInput();
+  if(stormInProgress || trickInProgress) {
+    random16_add_entropy( random());
+    animate(); 
+  } else {
+    
+    stormCountdown--;
+    trickCountdown--;
+    inputStatus = checkForInput();
   
-  if(inputStatus == 1 && !trickButtonExhausted) { // Trick button pressed
-    freeTrick();
-  } else if(inputStatus == 2) {
-    demoStorm();
-  }
+    if(inputStatus == 1 && !trickButtonExhausted) { // Trick button pressed
+      freeTrick();
+    } else if(inputStatus == 2) {
+      demoStorm();
+    }
   
-  if(stormCountdown <= 0) {
-    nextStorm();
-  }
+    if(stormCountdown <= 0) {
+      nextStorm();
+    }
   
-  if(trickCountdown <= 0) {
-    nextTrick();
-  }
+    if(trickCountdown <= 0) {
+      //nextTrick();
+    }
   
-  tick();
-  
-  /* demo/test code below here! */
-  
-  // Add entropy to random number generator; we use a lot of it.
-  random16_add_entropy( random());
+    tick();
+  }  
 
-  FireClouds(); 
-  randomBolt(2);
-  
-  FastLED.show(); // display this frame
-  FastLED.delay(1000 / FRAMES_PER_SECOND);  
 }
 
 int checkForInput() {
@@ -179,25 +164,83 @@ void nextTrick() {
      currentTrick = 0; 
     } */
     trickButtonExhausted = false; 
+    trickInProgress = true;
     //turn on button light
 }
 
 void nextStorm() {
-   stormCountdown = random(300,600); //only storm every 5-10 minutes
+   stormCountdown = 10; //random(300,600); //only storm every 5-10 minutes
    trickCountdown = 30;
    currentStorm++;
+   stormInProgress = true;
+   stormClock = 600; // random(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
 /*   if(currentStorm > storms.length) {
      currentStorm = 0;
    }*/
+   //TODO: Dim clouds and make ominous rumbling
 }
+void animate() {
+  if(stormInProgress) {
+    stormClock--;
+    if(stormClock == 0) {
+     stormInProgress = false; 
+    }
+    switch(currentStorm) {
+     case 1: fireStorm();
+             break;
+     case 2: iceStorm();
+             break;
+     default: currentStorm = 0;
+              stormClock = 0;
+              stormInProgress = false;
+              //TODO: We looped. Do something special here?
+    }
+  }
+  FastLED.show(); // display this frame
+  FastLED.delay(1000 / FRAMES_PER_SECOND); 
+}
+
 void tick() {
   //Update button color or animate it or something
-  //delay(1000);
+  trailLighting();
+  FastLED.show();
+  delay(1000);
+  Serial.print("tick\n");
 }
 
 /*************************
  * Below here is noodling that will need to get moved to the library
  *************************/
+ 
+ //TRAIL LIGHTING MODE
+ 
+void trailLighting() {
+ for(int i = 0; i < NUM_CLOUDS; i++) {
+  setBoltColor(i, CRGB::Black);
+  setCloudColor(i, 0xf2ff82);
+ }
+}
+ 
+//STORM DEFINITIONS
+
+void fireStorm() {
+  currentFlamePalette = 0;
+  flameClouds(); 
+  randomBolt(2); 
+  //Use the Doom/Lina crackling flames and something firey for the bolts
+ }
+ 
+void iceStorm() {
+  currentFlamePalette = 1;
+  flameClouds(); 
+  randomBolt(2); 
+  //Use the Doom/Lina crackling flames and something firey for the bolts
+ }
+ 
+ //TRICK DEFINITIONS
+ 
+ //UTILITY FUNCTIONS
+ 
 void randomBolt(int boltsPerSecond) {
   static bool isAnimating;
   static int frame;
@@ -206,13 +249,13 @@ void randomBolt(int boltsPerSecond) {
   if(isAnimating) {
     switch(frame) {
      case 0: bolt = random(0,NUM_CLOUDS);
-             setBoltColor(bolt, flashColors[currentFirePalette]);
+             setBoltColor(bolt, flashColors[currentFlamePalette]);
              Serial.println("RANDOMBOLT ANIMATION BEGINNGING");
              Serial.println(bolt);
              break;
      case 5:  setBoltColor(bolt, CRGB::Black);
                break;
-     case 10:  setBoltColor(bolt, flashColors[currentFirePalette]);
+     case 10:  setBoltColor(bolt, flashColors[currentFlamePalette]);
                break;
      case 40:  setBoltColor(bolt, CRGB::Black);
                frame = 0;
@@ -225,10 +268,8 @@ void randomBolt(int boltsPerSecond) {
     int randomNum = random(0,FRAMES_PER_SECOND * boltsPerSecond);
     Serial.print(randomNum);
     if(randomNum == 0) {
-      Serial.print("Bolt!\n");
       frame = 0;
       isAnimating = true;
-      Serial.print("\n\n\nANIMATING\n\n");
     } else {
       for(int i = 0; i < NUM_CLOUDS; i++){
         setBoltColor(bolt, CRGB::Black);
@@ -244,7 +285,14 @@ void setBoltColor(int bolt, CRGB color) {
   }
 }
 
-void FireClouds() //Combine with iceClouds obviously
+void setCloudColor(int cloud, CRGB color) {
+  int cloudEnd = LEDS_PER_CLOUD * (cloud + 1);
+  for(int i = cloud * LEDS_PER_CLOUD; i < cloudEnd; i++) {
+    leds[0][i] = color;
+  }
+}
+
+void flameClouds()
 {
   // Array of temperature readings at each simulation cell
   static byte heat[LEDS_PER_STRIP];
@@ -270,7 +318,7 @@ void FireClouds() //Combine with iceClouds obviously
       // Scale the heat value from 0-255 down to 0-240
       // for best results with color palettes.
       byte colorindex = scale8( heat[j], 240);
-      leds[0][j] = ColorFromPalette( firePalettes[currentFirePalette], colorindex);
+      leds[0][j] = ColorFromPalette( firePalettes[currentFlamePalette], colorindex);
     }
  
 }
