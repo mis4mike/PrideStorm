@@ -4,7 +4,6 @@
 //BGR
 #define CHIPSET WS2811
 //APA102
-//
 
 #define BRIGHTNESS 25
 #define FRAMES_PER_SECOND 60
@@ -57,6 +56,10 @@ int stormClock;
 CRGBPalette16 firePalettes[3]; 
 CRGB flashColors[3];
 
+CRGB rainbowColors[6] = { CRGB::Red, CRGB::DarkOrange, CRGB::Yellow, CRGB::Green, CRGB::Blue, CRGB::Purple };
+
+CRGBPalette16 currentRainbowPalette;
+TBlendType    currentRainbowBlending;
 
 int currentFlamePalette = 0;
 
@@ -169,11 +172,11 @@ void nextTrick() {
 }
 
 void nextStorm() {
-   stormCountdown = 10; //random(300,600); //only storm every 5-10 minutes
+   stormCountdown = 15; //random(300,600); //only storm every 5-10 minutes
    trickCountdown = 30;
    currentStorm++;
    stormInProgress = true;
-   stormClock = 600; // random(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
+   stormClock = 1800; // random(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
 /*   if(currentStorm > storms.length) {
      currentStorm = 0;
    }*/
@@ -186,9 +189,11 @@ void animate() {
      stormInProgress = false; 
     }
     switch(currentStorm) {
-     case 1: fireStorm();
+     case 1: prideStorm();
              break;
-     case 2: iceStorm();
+     case 2: fireStorm();
+             break;
+     case 3: iceStorm();
              break;
      default: currentStorm = 0;
               stormClock = 0;
@@ -217,31 +222,50 @@ void tick() {
 void trailLighting() {
  for(int i = 0; i < NUM_CLOUDS; i++) {
   setBoltColor(i, CRGB::Black);
-  setCloudColor(i, 0xf2ff82);
+  setCloudColor(i, CRGB::AntiqueWhite);
  }
 }
  
 //STORM DEFINITIONS
+void prideStorm(){
+  static int currentColor = 0;
+  
+  Serial.println("CurrentColor:");
+  Serial.println(currentColor);
+
+  currentRainbowPalette = RainbowColors_p;
+  currentRainbowBlending = LINEARBLEND;
+  
+  static uint8_t startIndex = 0;
+  startIndex = startIndex + 1; /* motion speed */
+  fillCloudsFromPaletteColors( startIndex);
+  if(randomBolt(1, rainbowColors[currentColor]) == 1) {
+    currentColor++;
+    if(currentColor >= sizeof(rainbowColors) / sizeof(rainbowColors[0])) {
+      currentColor = 0;
+    }
+  }
+}
 
 void fireStorm() {
   currentFlamePalette = 0;
   flameClouds(); 
-  randomBolt(2); 
+  randomBolt(2, flashColors[currentFlamePalette]); 
   //Use the Doom/Lina crackling flames and something firey for the bolts
- }
+}
  
 void iceStorm() {
   currentFlamePalette = 1;
   flameClouds(); 
-  randomBolt(2); 
-  //Use the Doom/Lina crackling flames and something firey for the bolts
- }
+  randomBolt(2, flashColors[currentFlamePalette]); 
+  //Use the CM sound at the beginning
+}
  
  //TRICK DEFINITIONS
  
  //UTILITY FUNCTIONS
  
-void randomBolt(int boltsPerSecond) {
+int randomBolt(int boltsPerSecond, CRGB color) {
   static bool isAnimating;
   static int frame;
   static int bolt;
@@ -249,13 +273,11 @@ void randomBolt(int boltsPerSecond) {
   if(isAnimating) {
     switch(frame) {
      case 0: bolt = random(0,NUM_CLOUDS);
-             setBoltColor(bolt, flashColors[currentFlamePalette]);
-             Serial.println("RANDOMBOLT ANIMATION BEGINNGING");
-             Serial.println(bolt);
+             setBoltColor(bolt, color);
              break;
      case 5:  setBoltColor(bolt, CRGB::Black);
                break;
-     case 10:  setBoltColor(bolt, flashColors[currentFlamePalette]);
+     case 10:  setBoltColor(bolt, color);
                break;
      case 40:  setBoltColor(bolt, CRGB::Black);
                frame = 0;
@@ -264,16 +286,19 @@ void randomBolt(int boltsPerSecond) {
     }
     frame++;
 
+    return 2;
   } else {
     int randomNum = random(0,FRAMES_PER_SECOND * boltsPerSecond);
     Serial.print(randomNum);
     if(randomNum == 0) {
       frame = 0;
       isAnimating = true;
+      return 1;
     } else {
       for(int i = 0; i < NUM_CLOUDS; i++){
         setBoltColor(bolt, CRGB::Black);
       }
+      return 0;
     }
   }
 }
@@ -323,3 +348,12 @@ void flameClouds()
  
 }
 
+void fillCloudsFromPaletteColors( uint8_t colorIndex)
+{
+    uint8_t brightness = 255;
+    
+    for( int i = 0; i < LEDS_PER_STRIP; i++) {
+        leds[0][i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
+        colorIndex += 3;
+    }
+}
