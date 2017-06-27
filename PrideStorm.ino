@@ -92,7 +92,7 @@ int stormClock;
 
 CRGBPalette16 flamePalettes[NUM_FLAME_PALETTES]; 
 CRGB flashColors[NUM_FLAME_PALETTES];
-int numBoltSounds[5] = {3, 1, 3, 2, 1};
+int numBoltSounds[9] = {3, 3, 3, 3, 2, 2, 3, 3, 2};
 
 uint32_t rainbowColors[6] = { CRGB::Red, CRGB::OrangeRed, CRGB::Yellow, CRGB::Green, CRGB::Blue, CRGB::Purple };
 
@@ -235,7 +235,7 @@ void demoStorm() {
 }
 
 void nextTrick() {
-    trickCountdown = random(30, 60);
+    trickCountdown = random16(30, 60);
     stormCountdown += 10;
     currentTrick++;
  /*   if(currentTrick >= tricks.length) {
@@ -248,15 +248,14 @@ void nextTrick() {
 }
 
 void nextStorm() {
-   stormCountdown = 5; //random(300,600); //only storm every 5-10 minutes
+   stormCountdown = 10; //random16(300,600); //only storm every 5-10 minutes
    trickCountdown = 30;
    currentStorm++;
    stormInProgress = true;
    animationBeginning = true;
-   stormClock = 600; // random(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
-
-   //TODO: Dim clouds and make ominous rumbling in a blocking function.
+   stormClock = 600; // random16(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
 }
+
 void animate() {
   
   if(stormInProgress) {
@@ -292,6 +291,11 @@ void animate() {
 }
 
 void stormIntro() {
+  musicPlayer.stopPlaying();
+  musicPlayer.startPlayingFile("intro.mp3");
+  //flicker leds and dim them for 9 seconds;
+  delay(2000); //just for testing
+  
   switch(currentStorm) {
      case 1: prideStormIntro();
              break;
@@ -356,6 +360,7 @@ void prideStormIntro() {
 }
 
 void fireStorm() {
+  playBackgroundSound("backfire.mp3");
   currentFlamePalette = 0;
   flameClouds(); 
   randomBolt(2, flashColors[currentFlamePalette]); 
@@ -384,13 +389,21 @@ void greenStorm() {
 }
 
 void purpleStorm() {
-  currentFlamePalette = 3;
+  currentFlamePalette = 4;
   flameClouds(); 
   randomBolt(2, flashColors[currentFlamePalette]); 
 }
  //TRICK DEFINITIONS
  
  //UTILITY FUNCTIONS
+ 
+void playBackgroundSound(char* filename) {
+  if (musicPlayer.stopped()) {
+    musicPlayer.stopPlaying();
+    musicPlayer.setVolume(10,10);
+    musicPlayer.startPlayingFile("backfire.mp3");
+  }
+}
  
 int randomBolt(int boltsPerSecond, CRGB color) {
   static bool isAnimating;
@@ -401,12 +414,12 @@ int randomBolt(int boltsPerSecond, CRGB color) {
   
   if(isAnimating) {
     switch(frame) {
-     case 0: bolt = random(0,NUM_CLOUDS);
+     case 0: bolt = random16(0,NUM_CLOUDS);
              setBoltColor(bolt, color);
-             sound = "bolt" + String(currentStorm) + String("-") + String(random(0, numBoltSounds[currentStorm - 1]) + 1) + String(".mp3");
+             sound = "bolt" + String(currentStorm) + String("-") + String(random16(0, numBoltSounds[currentStorm - 1]) + 1) + String(".mp3");
              sound.toCharArray(fileName, 12);
-             Serial.println(fileName);
              musicPlayer.stopPlaying();
+             musicPlayer.setVolume(20,20);
              musicPlayer.startPlayingFile(fileName);
              break;
      case 5:   setBoltColor(bolt, CRGB::Black);
