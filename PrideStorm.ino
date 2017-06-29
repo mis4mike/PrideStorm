@@ -65,8 +65,8 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 struct CRGB leds[2][LEDS_PER_STRIP];
 
 // Here are the button pins:
-#define PUBLIC_BUTTON_PIN 18 //A4 //A4 / 18
-#define PRIVATE_BUTTON_PIN 19 //A5 //A5 / 19
+#define PUBLIC_BUTTON_PIN 18
+#define PRIVATE_BUTTON_PIN 19
 
 int mode = 1;
 bool buttonDown = false;
@@ -253,7 +253,7 @@ void nextStorm() {
    currentStorm++;
    stormInProgress = true;
    animationBeginning = true;
-   stormClock = 600; // random16(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
+   stormClock = 1200; // random16(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
 }
 
 void animate() {
@@ -291,10 +291,24 @@ void animate() {
 }
 
 void stormIntro() {
+  
+  //Dim the leds over 5 seconds
+  for (int i = 0; i < 100; i++) {
+     dimClouds();
+     FastLED.show();
+     delay(50);
+  }
+  delay(2000);
+  
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("intro.mp3");
-  //flicker leds and dim them for 9 seconds;
-  delay(2000); //just for testing
+  //flicker leds for 9 seconds;
+  for (int i = 0; i < 100; i++) {
+     flickerClouds();
+     FastLED.show();
+     delay(90);
+  }
+  
   
   switch(currentStorm) {
      case 1: prideStormIntro();
@@ -321,6 +335,7 @@ void tick() {
  //TRAIL LIGHTING MODE
  
 void trailLighting() {
+ musicPlayer.stopPlaying();
  for(int i = 0; i < NUM_CLOUDS; i++) {
   setBoltColor(i, CRGB::Black);
   setCloudColor(i, CRGB::AntiqueWhite);
@@ -334,11 +349,12 @@ void prideStorm() {
   currentRainbowPalette = RainbowColors_p;
   currentRainbowBlending = LINEARBLEND;
   
+  playBackgroundSound("backwav3.mp3");
+
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
   fillCloudsFromPaletteColors( startIndex);
   if(randomBolt(1, rainbowColors[currentColor]) == 1) {
-      Serial.println(rainbowColors[currentColor]);
     currentColor++;
     if(currentColor >= sizeof(rainbowColors) / sizeof(rainbowColors[0])) {
       currentColor = 0;
@@ -347,11 +363,7 @@ void prideStorm() {
 }
 void prideStormIntro() {
   //TODO: Play Enchant_target_slow.mp3
-  Serial.println("Pridestorm Intro");
   for(int i = 0; i < NUM_CLOUDS; i++) {
-    Serial.println(i);
-    Serial.println(CRGB::Red);
-    Serial.println(rainbowColors[i % NUM_CLOUDS]);
     setBoltColor(i, CRGB::Black);
     setCloudColor(i, rainbowColors[i % NUM_CLOUDS]);
     //delay(1000);
@@ -372,6 +384,7 @@ void fireStormIntro() {
 }
 
 void iceStorm() {
+  playBackgroundSound("backwind.mp3");
   currentFlamePalette = 1;
   flameClouds(); 
   randomBolt(2, flashColors[currentFlamePalette]); 
@@ -383,12 +396,14 @@ void iceStormIntro() {
 }
 
 void greenStorm() {
+  playBackgroundSound("backwavy.mp3");
   currentFlamePalette = 3;
   flameClouds(); 
   randomBolt(2, flashColors[currentFlamePalette]); 
 }
 
 void purpleStorm() {
+  playBackgroundSound("backwav3.mp3");
   currentFlamePalette = 4;
   flameClouds(); 
   randomBolt(2, flashColors[currentFlamePalette]); 
@@ -400,8 +415,8 @@ void purpleStorm() {
 void playBackgroundSound(char* filename) {
   if (musicPlayer.stopped()) {
     musicPlayer.stopPlaying();
-    musicPlayer.setVolume(10,10);
-    musicPlayer.startPlayingFile("backfire.mp3");
+    musicPlayer.setVolume(90,90);
+    musicPlayer.startPlayingFile(filename);
   }
 }
  
@@ -419,7 +434,7 @@ int randomBolt(int boltsPerSecond, CRGB color) {
              sound = "bolt" + String(currentStorm) + String("-") + String(random16(0, numBoltSounds[currentStorm - 1]) + 1) + String(".mp3");
              sound.toCharArray(fileName, 12);
              musicPlayer.stopPlaying();
-             musicPlayer.setVolume(20,20);
+             musicPlayer.setVolume(5,5);
              musicPlayer.startPlayingFile(fileName);
              break;
      case 5:   setBoltColor(bolt, CRGB::Black);
@@ -460,6 +475,22 @@ void setCloudColor(int cloud, CRGB color) {
   int cloudEnd = LEDS_PER_CLOUD * (cloud + 1);
   for(int i = cloud * LEDS_PER_CLOUD; i < cloudEnd; i++) {
     leds[0][i] = color;
+  }
+}
+
+void dimClouds() {
+  for(int i = 0; i < LEDS_PER_STRIP; i++) {
+    leds[0][i].fadeLightBy( 8 );
+  }
+}
+
+void flickerClouds() {
+  for(int i = 0; i < LEDS_PER_STRIP; i++) {
+    if(random(0,50) == 0) {
+     leds[0][i] = CRGB::White; 
+    } else {
+      leds[0][i] = 0x202020;
+    }
   }
 }
 
