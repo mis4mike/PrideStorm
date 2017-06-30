@@ -36,6 +36,22 @@ Adafruit_VS1053_FilePlayer musicPlayer =
   Adafruit_VS1053_FilePlayer(SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS);
 
 /*****************
+* BUTTONS SETUP
+*****************/
+
+#define PRIVATE_BUTTON_PIN 36
+
+#define PUBLIC_BUTTON_PIN 34
+#define PUBLIC_BUTTON_POWER_PIN 32
+#define PUBLIC_BUTTON_LIGHT_PIN 22
+
+//For RGB Button
+#define PUBLIC_BUTTON_RED_PIN 44
+#define PUBLIC_BUTTON_GREEN_PIN 45
+#define PUBLIC_BUTTON_BLUE_PIN 46
+
+
+/*****************
 * LIGHTS SETUP
 *****************/
 
@@ -64,10 +80,6 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 
 struct CRGB leds[2][LEDS_PER_STRIP];
 
-// Here are the button pins:
-#define PUBLIC_BUTTON_PIN 18
-#define PRIVATE_BUTTON_PIN 19
-
 int mode = 1;
 bool buttonDown = false;
 
@@ -79,12 +91,12 @@ bool buttonDown = false;
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 
-int stormCountdown = 5;
+int stormCountdown = 300;
 int trickCountdown = 0;
 int currentStorm = 0;
 int currentTrick = 0;
 int inputStatus = 0;
-bool trickButtonExhausted = false;
+int trickButtonExhausted = 0;
 bool stormInProgress = false;
 bool trickInProgress = false;
 bool animationBeginning = false;
@@ -120,7 +132,7 @@ void setup() {
   }
 
   // list files
-  printDirectory(SD.open("/"), 0);
+  //printDirectory(SD.open("/"), 0);
   
   // Set volume for left, right channels. lower numbers == louder volume!
   musicPlayer.setVolume(20,20);
@@ -135,24 +147,26 @@ void setup() {
   // Play one file, don't return until complete
   //musicPlayer.playFullFile("startup.mp3");
 
+  //BUTTON SETUP
+  pinMode(PUBLIC_BUTTON_PIN, INPUT);
+  pinMode(PRIVATE_BUTTON_PIN, INPUT);
+  pinMode(PUBLIC_BUTTON_RED_PIN, OUTPUT);
+  pinMode(PUBLIC_BUTTON_GREEN_PIN, OUTPUT);
+  pinMode(PUBLIC_BUTTON_BLUE_PIN, OUTPUT);
+  pinMode(PUBLIC_BUTTON_POWER_PIN, OUTPUT);
+  pinMode(PUBLIC_BUTTON_LIGHT_PIN, OUTPUT);
+  digitalWrite(PUBLIC_BUTTON_POWER_PIN, HIGH);
+  digitalWrite(PUBLIC_BUTTON_LIGHT_PIN, LOW);
+
   
   //LED SETUP
 
   delay(1000); // sanity delay
   LEDS.addLeds<WS2811, 12, COLOR_ORDER>(leds[0], LEDS_PER_STRIP);
-
   LEDS.addLeds<WS2811, 11, COLOR_ORDER>(leds[1], LEDS_PER_STRIP);
-
   FastLED.setBrightness( BRIGHTNESS );
-
   loadPalettes();
 
-  // This first palette is the basic 'black body radiation' colors,
-  // which run from black to red to bright yellow to white.
-
-  //Set up button for pressing!
-  pinMode(PUBLIC_BUTTON_PIN, INPUT);
-  pinMode(PRIVATE_BUTTON_PIN, INPUT);
 }
 
 void loadPalettes(){
@@ -177,26 +191,34 @@ void loadPalettes(){
 void debugLoop() {
   Serial.println(stormCountdown);
   Serial.println(stormClock);
+  Serial.println(trickButtonExhausted);
+  Serial.println(trickCountdown);  
   Serial.println(stormInProgress);
+  Serial.println(trickInProgress);
 }
 
 void loop() {
  
-  //debugLoop();
+  debugLoop();
   
   if(stormInProgress || trickInProgress) {
     random16_add_entropy( random());
     animate(); 
   } else {
+
+    inputStatus = 0;
+    inputStatus = tick();
+    if(trickButtonExhausted <= 0) {
+      trickButtonExhausted = 0;
+      activateButton();
+    }
     
-    stormCountdown--;
-    trickCountdown--;
-    inputStatus = checkForInput();
-  
-    if(inputStatus == 1 && !trickButtonExhausted) { // Trick button pressed
+    if(inputStatus == 1 && trickButtonExhausted <= 0) { // Trick button pressed
       freeTrick();
+      Serial.println("Free Trick!");
     } else if(inputStatus == 2) {
       demoStorm();
+      Serial.println("Demo Storm!");
     }
   
     if(stormCountdown <= 0) {
@@ -204,30 +226,47 @@ void loop() {
     }
   
     if(trickCountdown <= 0) {
-      //nextTrick();
+     nextTrick();
     }
-  
-    tick();
+    //setButtonColor(255,0,0); //for RGB Button
   }  
 
 }
 
 int checkForInput() {
- //check for a button press 
- if(digitalRead(PUBLIC_BUTTON_PIN)) {
+ //check for a button press  
+ Serial.println(digitalRead(PUBLIC_BUTTON_PIN));
+ if(!digitalRead(PUBLIC_BUTTON_PIN)) {
   return 1; 
  }
  if(digitalRead(PRIVATE_BUTTON_PIN)) {
   return 2; 
  }
-
 }
 
 void freeTrick() {
     trickCountdown = 0;
-    trickButtonExhausted = true;
+    trickButtonExhausted = 60;
     stormCountdown += 90; 
-    //Turn off button light
+    deactivateButton();
+}
+
+void setButtonColor(int red, int green, int blue) {
+  analogWrite(PUBLIC_BUTTON_RED_PIN, red);
+  analogWrite(PUBLIC_BUTTON_GREEN_PIN, green);
+  analogWrite(PUBLIC_BUTTON_BLUE_PIN, blue);
+
+}
+
+void activateButton() {
+  Serial.println("Activate Button");
+  digitalWrite(PUBLIC_BUTTON_LIGHT_PIN, HIGH);  
+}
+
+void deactivateButton() {
+  Serial.println("Deactivate Button");
+  digitalWrite(PUBLIC_BUTTON_LIGHT_PIN, LOW);  
+
 }
 
 void demoStorm() {
@@ -235,20 +274,17 @@ void demoStorm() {
 }
 
 void nextTrick() {
-    trickCountdown = random16(30, 60);
+    Serial.println("Next Trick!");
+    trickCountdown = random16(120, 180);
     stormCountdown += 10;
     currentTrick++;
- /*   if(currentTrick >= tricks.length) {
-     currentTrick = 0; 
-    } */
-    trickButtonExhausted = false; 
     trickInProgress = true;
     animationBeginning = true;
-    //turn on button light
 }
 
 void nextStorm() {
-   stormCountdown = 10; //random16(300,600); //only storm every 5-10 minutes
+   Serial.println("Next Storm!");
+   stormCountdown = random16(300,600); //only storm every 5-10 minutes
    trickCountdown = 30;
    currentStorm++;
    stormInProgress = true;
@@ -257,7 +293,6 @@ void nextStorm() {
 }
 
 void animate() {
-  
   if(stormInProgress) {
     if(animationBeginning) {
       stormIntro();
@@ -286,12 +321,22 @@ void animate() {
     }
   }
   
+  if(trickInProgress) {
+    switch(currentTrick) {
+     case 1: trick1();
+             break;
+     default: currentTrick = 0;
+              //TODO: We looped. Do something special here?
+    }    
+    trickInProgress = false;
+  }
+  
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND); 
 }
 
 void stormIntro() {
-  
+  Serial.println("stormIntro");
   //Dim the leds over 5 seconds
   for (int i = 0; i < 100; i++) {
      dimClouds();
@@ -320,12 +365,31 @@ void stormIntro() {
   } 
 }
 
-void tick() {
-  //Update button color or animate it or something
+int tick() {
+  //Update button color or animate it or something if using RGB
+  stormCountdown--;
+  trickCountdown--;
+  trickButtonExhausted--;
+  int input = 0;
   trailLighting();
+  if(trickButtonExhausted > 0) {
+   deactivateButton(); 
+  }
   FastLED.show();
-  delay(1000);
+  for(int i = 0; i < 10; i++) {
+    input = checkForInput();
+    
+    if(input == 1 && trickButtonExhausted <= 0) {
+     return input; 
+    }
+    
+    if(input == 2) {
+     return input; 
+    }
+    delay(100);
+  }
   Serial.println("tick");
+  return 0;
 }
 
 /*************************
@@ -350,7 +414,6 @@ void prideStorm() {
   currentRainbowBlending = LINEARBLEND;
   
   playBackgroundSound("backwav3.mp3");
-
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
   fillCloudsFromPaletteColors( startIndex);
@@ -361,6 +424,7 @@ void prideStorm() {
     }
   }
 }
+
 void prideStormIntro() {
   //TODO: Play Enchant_target_slow.mp3
   for(int i = 0; i < NUM_CLOUDS; i++) {
@@ -409,10 +473,20 @@ void purpleStorm() {
   randomBolt(2, flashColors[currentFlamePalette]); 
 }
  //TRICK DEFINITIONS
- 
+ void trick1() {
+  musicPlayer.stopPlaying();
+  musicPlayer.startPlayingFile("rune5.mp3");
+  for(int i = 0; i < NUM_CLOUDS; i++){
+    setCloudColor(i, rainbowColors[i]);
+    FastLED.show();
+    delay(1000);
+  }
+  delay(5000);
+ }
  //UTILITY FUNCTIONS
  
 void playBackgroundSound(char* filename) {
+  return; //Not using background sounds for now.
   if (musicPlayer.stopped()) {
     musicPlayer.stopPlaying();
     musicPlayer.setVolume(90,90);
