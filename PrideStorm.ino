@@ -63,12 +63,14 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define BRIGHTNESS 200
 #define FRAMES_PER_SECOND 60
 
-#define NUM_CLOUDS 2
-#define CLOUDS_PIN 12
-#define BOLTS_PIN 11
-#define LEDS_PER_CLOUD 12 //Clouds and bolts must have the same number of LEDs for this implementation
-#define LEDS_PER_BOLT 12
-#define LEDS_PER_STRIP LEDS_PER_CLOUD * NUM_CLOUDS
+#define NUM_CLOUDS 1
+#define CLOUDS_PIN 11
+#define BOLTS_PIN 12
+#define LEDS_PER_CLOUD 12
+#define LEDS_PER_BOLT 9
+#define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
+#define NUM_BOLT_LEDS LEDS_PER_BOLT * NUM_CLOUDS
+
 
 //For fire animations
 #define NUM_FLAME_PALETTES 5
@@ -78,7 +80,8 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 //CRGB clouds[NUM_CLOUDS * LEDS_PER_CLOUD];
 //CRGB bolts[NUM_CLOUDS * LEDS_PER_BOLT];
 
-struct CRGB leds[2][LEDS_PER_STRIP];
+struct CRGB cloudLeds[NUM_CLOUD_LEDS];
+struct CRGB boltLeds[NUM_BOLT_LEDS];
 
 int mode = 1;
 bool buttonDown = false;
@@ -125,12 +128,12 @@ void setup() {
      while (1);
   }
   Serial.println(F("VS1053 found"));
-  
-   if (!SD.begin(CARDCS)) {
+  /*
+  if (!SD.begin(CARDCS)) {
     Serial.println(F("SD failed, or not present"));
     while (1);  // don't do anything more
   }
-
+*/
   // list files
   //printDirectory(SD.open("/"), 0);
   
@@ -162,18 +165,30 @@ void setup() {
   //LED SETUP
 
   delay(1000); // sanity delay
-  LEDS.addLeds<WS2811, 12, COLOR_ORDER>(leds[0], LEDS_PER_STRIP);
-  LEDS.addLeds<WS2811, 11, COLOR_ORDER>(leds[1], LEDS_PER_STRIP);
+  LEDS.addLeds<WS2811, CLOUDS_PIN, COLOR_ORDER>(cloudLeds, NUM_CLOUD_LEDS);
+  LEDS.addLeds<WS2811, BOLTS_PIN, COLOR_ORDER>(boltLeds, NUM_BOLT_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
   loadPalettes();
 
+  startupDebug();
+  ledTestStrip();
+
+}
+
+void startupDebug() {
+ Serial.print("NUM_CLOUDS: "); 
+ Serial.println(NUM_CLOUDS);
+ Serial.print("NUM_CLOUD_LEDS: "); 
+ Serial.println(NUM_CLOUD_LEDS); 
+ Serial.print("NUM_BOLT_LEDS: "); 
+ Serial.println(NUM_BOLT_LEDS);
 }
 
 void loadPalettes(){
   // These are other ways to set up the color palette for the 'fire'.
   // First, a gradient from black to red to yellow to white -- similar to HeatColors_p
   flamePalettes[0] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
-  flashColors[0] = CRGB::Red;
+  flashColors[0] = CRGB::Yellow;
   // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
   flamePalettes[1] = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
   flashColors[1] = CRGB::White;
@@ -182,9 +197,9 @@ void loadPalettes(){
   flashColors[2] = CRGB::White; 
   //Green
   flamePalettes[3] = CRGBPalette16( CRGB::DarkGreen, CRGB::Green, CRGB::White);
-  flashColors[3] = CRGB::Green;  
+  flashColors[3] = CRGB::DeepPink;  
   flamePalettes[4] = CRGBPalette16( CRGB::Purple, CRGB::Amethyst, CRGB::White);
-  flashColors[4] = CRGB::Amethyst;  
+  flashColors[4] = CRGB::Orange;  
   
 }
 
@@ -197,9 +212,34 @@ void debugLoop() {
   Serial.println(trickInProgress);
 }
 
+void debugLeds() {
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+   Serial.print(cloudLeds[i]); 
+  }
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+   Serial.print(boltLeds[i]); 
+  }
+}
+
+void ledTestStrip(){
+ for(int i = 1; i < NUM_CLOUD_LEDS; i++) {
+  cloudLeds[i-1] = CRGB::Black;
+  cloudLeds[i] = CRGB::White;
+  FastLED.show();
+  delay(35);
+ } 
+  for(int i = 1; i < NUM_BOLT_LEDS; i++) {
+  boltLeds[i-1] = CRGB::Black;
+  boltLeds[i] = CRGB::White;
+  FastLED.show();
+  delay(35);
+ } 
+}
+
 void loop() {
  
-  debugLoop();
+  //debugLoop();
+  //debugLeds();
   
   if(stormInProgress || trickInProgress) {
     random16_add_entropy( random());
@@ -235,8 +275,7 @@ void loop() {
 
 int checkForInput() {
  //check for a button press  
- Serial.println(digitalRead(PUBLIC_BUTTON_PIN));
- if(!digitalRead(PUBLIC_BUTTON_PIN)) {
+ if(digitalRead(PUBLIC_BUTTON_PIN)) {
   return 1; 
  }
  if(digitalRead(PRIVATE_BUTTON_PIN)) {
@@ -314,6 +353,8 @@ void animate() {
              break;  
      case 5: purpleStorm();
              break; 
+     case 6: rainbowStorm();
+             break;             
      default: currentStorm = 0;
               stormClock = 0;
               stormInProgress = false;
@@ -360,7 +401,7 @@ void stormIntro() {
              break;
      case 2: fireStormIntro();
              break;
-     case 3: iceStormIntro();
+     case 3: rainbowStormIntro();
              break;  
   } 
 }
@@ -378,7 +419,8 @@ int tick() {
   FastLED.show();
   for(int i = 0; i < 10; i++) {
     input = checkForInput();
-    
+    Serial.println(digitalRead(input));
+
     if(input == 1 && trickButtonExhausted <= 0) {
      return input; 
     }
@@ -393,7 +435,7 @@ int tick() {
 }
 
 /*************************
- * Below here is noodling that will need to get moved to the library
+ * Storms and modes
  *************************/
  
  //TRAIL LIGHTING MODE
@@ -402,7 +444,7 @@ void trailLighting() {
  musicPlayer.stopPlaying();
  for(int i = 0; i < NUM_CLOUDS; i++) {
   setBoltColor(i, CRGB::Black);
-  setCloudColor(i, CRGB::AntiqueWhite);
+  setCloudColor(i, CRGB::Gray);
  }
 }
  
@@ -439,7 +481,7 @@ void fireStorm() {
   playBackgroundSound("backfire.mp3");
   currentFlamePalette = 0;
   flameClouds(); 
-  randomBolt(2, flashColors[currentFlamePalette]); 
+  randomBolt(1, flashColors[currentFlamePalette]); 
   //Use the Doom/Lina crackling flames and something firey for the bolts
 }
  
@@ -447,11 +489,24 @@ void fireStormIntro() {
   
 }
 
+void rainbowStorm() {
+  //TODO: Pulsate brightness?
+  randomRainbowBolt(2);
+}
+
+void rainbowStormIntro() {
+  for (int i = 0; i < NUM_CLOUDS; i++) {
+   //TODO: Play blink dagger sound
+   setCloudColor(i, rainbowColors[i]); 
+   delay(1000);
+  }
+}
+
 void iceStorm() {
   playBackgroundSound("backwind.mp3");
   currentFlamePalette = 1;
   flameClouds(); 
-  randomBolt(2, flashColors[currentFlamePalette]); 
+  randomBolt(1, flashColors[currentFlamePalette]); 
   //Use the CM sound at the beginning
 }
 
@@ -463,26 +518,50 @@ void greenStorm() {
   playBackgroundSound("backwavy.mp3");
   currentFlamePalette = 3;
   flameClouds(); 
-  randomBolt(2, flashColors[currentFlamePalette]); 
+  randomBolt(1, flashColors[currentFlamePalette]); 
 }
 
 void purpleStorm() {
   playBackgroundSound("backwav3.mp3");
   currentFlamePalette = 4;
   flameClouds(); 
-  randomBolt(2, flashColors[currentFlamePalette]); 
+  randomBolt(1, flashColors[currentFlamePalette]); 
 }
  //TRICK DEFINITIONS
- void trick1() {
+void trick1() {
   musicPlayer.stopPlaying();
-  musicPlayer.startPlayingFile("rune5.mp3");
+  musicPlayer.startPlayingFile("rune1.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
     setCloudColor(i, rainbowColors[i]);
     FastLED.show();
-    delay(1000);
+    delay(500);
   }
   delay(5000);
- }
+}
+
+void trick2() {
+  musicPlayer.stopPlaying();
+  musicPlayer.startPlayingFile("rune2.mp3");
+  for(int i = 0; i < NUM_CLOUDS; i++){
+    setCloudColor(i - 1, CRGB::Black);
+    setCloudColor(i, rainbowColors[i]);
+    FastLED.show();
+    delay(500);
+  }
+  delay(2000);
+} 
+
+void trick3() {
+  musicPlayer.stopPlaying();
+  musicPlayer.startPlayingFile("rune3.mp3");
+  for(int i = 0; i < NUM_CLOUDS; i++){
+    setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i]);
+    setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i]);
+    FastLED.show();
+    delay(500);
+  }
+  delay(2000);
+}  
  //UTILITY FUNCTIONS
  
 void playBackgroundSound(char* filename) {
@@ -538,32 +617,78 @@ int randomBolt(int boltsPerSecond, CRGB color) {
   }
 }
 
+int randomRainbowBolt(int boltsPerSecond) {
+  static bool isAnimating;
+  static int frame;
+  static int bolt;
+  String sound;
+  char fileName[12];
+  
+  if(isAnimating) {
+    switch(frame) {
+     case 0: bolt = random16(0,NUM_CLOUDS);
+             setBoltColor(bolt, rainbowColors[bolt]);
+             sound = "bolt6" + String("-") + String(random16(0, numBoltSounds[6]) + 1) + String(".mp3");
+             musicPlayer.stopPlaying();
+             musicPlayer.setVolume(5,5);
+             musicPlayer.startPlayingFile(fileName);
+             break;
+     case 5:   setBoltColor(bolt, CRGB::Black);
+               break;
+     case 10:  setBoltColor(bolt, rainbowColors[bolt]);
+               break;
+     case 40:  setBoltColor(bolt, CRGB::Black);
+               frame = 0;
+               isAnimating = false;
+               bolt = random(0,NUM_CLOUDS);
+    }
+    frame++;
+
+    return 2;
+  } else {
+    int randomNum = random(0,FRAMES_PER_SECOND * boltsPerSecond);
+    if(randomNum == 0) {
+      frame = 0;
+      isAnimating = true;
+      return 1;
+    } else {
+      for(int i = 0; i < NUM_CLOUDS; i++){
+        setBoltColor(bolt, CRGB::Black);
+      }
+      return 0;
+    }
+  }
+}
+
 void setBoltColor(int bolt, CRGB color) {
   int boltEnd = LEDS_PER_BOLT * (bolt + 1);
   for(int i = bolt * LEDS_PER_BOLT; i < boltEnd; i++) {
-    leds[1][i] = color;
+    boltLeds[i] = color;
   }
 }
 
 void setCloudColor(int cloud, CRGB color) {
+  if(cloud < 0 || cloud > NUM_CLOUDS) {
+    return; 
+  }
   int cloudEnd = LEDS_PER_CLOUD * (cloud + 1);
   for(int i = cloud * LEDS_PER_CLOUD; i < cloudEnd; i++) {
-    leds[0][i] = color;
+    cloudLeds[i] = color;
   }
 }
 
 void dimClouds() {
-  for(int i = 0; i < LEDS_PER_STRIP; i++) {
-    leds[0][i].fadeLightBy( 8 );
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    cloudLeds[i].fadeLightBy( 8 );
   }
 }
 
 void flickerClouds() {
-  for(int i = 0; i < LEDS_PER_STRIP; i++) {
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     if(random(0,50) == 0) {
-     leds[0][i] = CRGB::White; 
+      cloudLeds[i] = CRGB::White; 
     } else {
-      leds[0][i] = 0x202020;
+      cloudLeds[i] = 0x202020;
     }
   }
 }
@@ -571,15 +696,15 @@ void flickerClouds() {
 void flameClouds()
 {
   // Array of temperature readings at each simulation cell
-  static byte heat[LEDS_PER_STRIP];
+  static byte heat[NUM_CLOUD_LEDS];
 
   // Step 1.  Cool down every cell a little
-    for( int i = 0; i < LEDS_PER_STRIP; i++) {
-      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / LEDS_PER_STRIP) + 2));
+    for( int i = 0; i < NUM_CLOUD_LEDS; i++) {
+      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_CLOUD_LEDS) + 2));
     }
   
     // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-    for( int k= LEDS_PER_STRIP - 1; k >= 2; k--) {
+    for( int k= NUM_CLOUD_LEDS - 1; k >= 2; k--) {
       heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
     }
     
@@ -590,11 +715,11 @@ void flameClouds()
     }
 
     // Step 4.  Map from heat cells to LED colors
-    for( int j = 0; j < LEDS_PER_STRIP; j++) {
+    for( int j = 0; j < NUM_CLOUD_LEDS; j++) {
       // Scale the heat value from 0-255 down to 0-240
       // for best results with color palettes.
       byte colorindex = scale8( heat[j], 240);
-      leds[0][j] = ColorFromPalette( flamePalettes[currentFlamePalette], colorindex);
+      cloudLeds[j] = ColorFromPalette( flamePalettes[currentFlamePalette], colorindex);
     }
  
 }
@@ -603,8 +728,8 @@ void fillCloudsFromPaletteColors( uint8_t colorIndex)
 {
     uint8_t brightness = 255;
     
-    for( int i = 0; i < LEDS_PER_STRIP; i++) {
-        leds[0][i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
+    for( int i = 0; i < NUM_CLOUD_LEDS; i++) {
+        cloudLeds[i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
         colorIndex += 3;
     }
 }
