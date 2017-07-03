@@ -63,11 +63,11 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define BRIGHTNESS 200
 #define FRAMES_PER_SECOND 60
 
-#define NUM_CLOUDS 1
+#define NUM_CLOUDS 6
+#define LEDS_PER_CLOUD 1
+#define LEDS_PER_BOLT 1
 #define CLOUDS_PIN 11
 #define BOLTS_PIN 12
-#define LEDS_PER_CLOUD 12
-#define LEDS_PER_BOLT 9
 #define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
 #define NUM_BOLT_LEDS LEDS_PER_BOLT * NUM_CLOUDS
 
@@ -98,6 +98,7 @@ int stormCountdown = 300;
 int trickCountdown = 0;
 int currentStorm = 0;
 int currentTrick = 0;
+int currentTrickFrame = 0;
 int inputStatus = 0;
 int trickButtonExhausted = 0;
 bool stormInProgress = false;
@@ -109,7 +110,8 @@ CRGBPalette16 flamePalettes[NUM_FLAME_PALETTES];
 CRGB flashColors[NUM_FLAME_PALETTES];
 int numBoltSounds[9] = {3, 3, 3, 3, 2, 2, 3, 3, 2};
 
-uint32_t rainbowColors[6] = { CRGB::Red, CRGB::OrangeRed, CRGB::Yellow, CRGB::Green, CRGB::Blue, CRGB::Purple };
+#define NUM_RAINBOW_COLORS 6
+uint32_t rainbowColors[NUM_RAINBOW_COLORS] = { CRGB::Red, CRGB::OrangeRed, CRGB::Yellow, CRGB::Green, CRGB::Blue, CRGB::Purple };
 
 CRGBPalette16 currentRainbowPalette;
 TBlendType    currentRainbowBlending;
@@ -187,18 +189,18 @@ void startupDebug() {
 void loadPalettes(){
   // These are other ways to set up the color palette for the 'fire'.
   // First, a gradient from black to red to yellow to white -- similar to HeatColors_p
-  flamePalettes[0] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
-  flashColors[0] = CRGB::Yellow;
+  flamePalettes[0] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::WhiteSmoke);
+  flashColors[0] = CRGB::Blue;
   // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
-  flamePalettes[1] = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::White);
-  flashColors[1] = CRGB::White;
+  flamePalettes[1] = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::WhiteSmoke);
+  flashColors[1] = CRGB::WhiteSmoke;
   // Third, here's a simpler, three-step gradient, from black to red to white
-  flamePalettes[2] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::White);
-  flashColors[2] = CRGB::White; 
+  flamePalettes[2] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::WhiteSmoke);
+  flashColors[2] = CRGB::WhiteSmoke; 
   //Green
-  flamePalettes[3] = CRGBPalette16( CRGB::DarkGreen, CRGB::Green, CRGB::White);
+  flamePalettes[3] = CRGBPalette16( CRGB::DarkGreen, CRGB::Green, CRGB::WhiteSmoke);
   flashColors[3] = CRGB::DeepPink;  
-  flamePalettes[4] = CRGBPalette16( CRGB::Purple, CRGB::Amethyst, CRGB::White);
+  flamePalettes[4] = CRGBPalette16( CRGB::Purple, CRGB::Amethyst, CRGB::WhiteSmoke);
   flashColors[4] = CRGB::Orange;  
   
 }
@@ -224,13 +226,13 @@ void debugLeds() {
 void ledTestStrip(){
  for(int i = 1; i < NUM_CLOUD_LEDS; i++) {
   cloudLeds[i-1] = CRGB::Black;
-  cloudLeds[i] = CRGB::White;
+  cloudLeds[i] = CRGB::WhiteSmoke;
   FastLED.show();
   delay(35);
  } 
   for(int i = 1; i < NUM_BOLT_LEDS; i++) {
   boltLeds[i-1] = CRGB::Black;
-  boltLeds[i] = CRGB::White;
+  boltLeds[i] = CRGB::WhiteSmoke;
   FastLED.show();
   delay(35);
  } 
@@ -270,7 +272,33 @@ void loop() {
     }
     //setButtonColor(255,0,0); //for RGB Button
   }  
+}
 
+int tick() {
+  //Update button color or animate it or something if using RGB
+  stormCountdown--;
+  trickCountdown--;
+  trickButtonExhausted--;
+  int input = 0;
+  trailLighting();
+  if(trickButtonExhausted > 0) {
+   deactivateButton(); 
+  }
+  FastLED.show();
+  for(int i = 0; i < 10; i++) {
+    input = checkForInput();
+
+    if(input == 1 && trickButtonExhausted <= 0) {
+     return input; 
+    }
+    
+    if(input == 2) {
+     return input; 
+    }
+    delay(100);
+  }
+  Serial.println("tick");
+  return 0;
 }
 
 int checkForInput() {
@@ -285,7 +313,7 @@ int checkForInput() {
 
 void freeTrick() {
     trickCountdown = 0;
-    trickButtonExhausted = 60;
+    trickButtonExhausted = 5;
     stormCountdown += 90; 
     deactivateButton();
 }
@@ -298,12 +326,10 @@ void setButtonColor(int red, int green, int blue) {
 }
 
 void activateButton() {
-  Serial.println("Activate Button");
   digitalWrite(PUBLIC_BUTTON_LIGHT_PIN, HIGH);  
 }
 
 void deactivateButton() {
-  Serial.println("Deactivate Button");
   digitalWrite(PUBLIC_BUTTON_LIGHT_PIN, LOW);  
 
 }
@@ -313,22 +339,25 @@ void demoStorm() {
 }
 
 void nextTrick() {
-    Serial.println("Next Trick!");
     trickCountdown = random16(120, 180);
     stormCountdown += 10;
     currentTrick++;
     trickInProgress = true;
     animationBeginning = true;
+    currentTrickFrame = 0;
+    Serial.print("Next Trick! ");
+    Serial.println(currentTrick);
 }
 
 void nextStorm() {
-   Serial.println("Next Storm!");
    stormCountdown = random16(300,600); //only storm every 5-10 minutes
    trickCountdown = 30;
    currentStorm++;
    stormInProgress = true;
    animationBeginning = true;
    stormClock = 1200; // random16(1200,1800); //Storm for 20-30 seconds (1200 - 1800 frames)
+   Serial.println("Next Storm! ");
+   Serial.println(currentStorm);
 }
 
 void animate() {
@@ -364,23 +393,56 @@ void animate() {
   
   if(trickInProgress) {
     switch(currentTrick) {
-     case 1: trick1();
+     case 1: rainbowTrick1();
              break;
-     default: currentTrick = 0;
-              //TODO: We looped. Do something special here?
+     case 2: iceTrick();
+             break;
+     case 3: rainbowTrick2();
+             break;     
+     case 4: greenTrick();
+             break;
+     case 5: rainbowTrick3();
+             break;
+     case 6: sparkleColorsTrick();
+             break;
+     case 7: purpleTrick();
+             break;
+     case 8: sparkleTrick();
+             break;
+     case 9: sparkleColorsPersistentTrick();
+             break;
+     default: flameTrick();
+              currentTrick = 0;
     }    
-    trickInProgress = false;
+    currentTrickFrame++;
   }
   
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND); 
 }
 
+
+/*************************
+ * Storms and modes
+ *************************/
+ 
+ //TRAIL LIGHTING MODE
+ 
+void trailLighting() {
+ musicPlayer.stopPlaying();
+ for(int i = 0; i < NUM_CLOUDS; i++) {
+  setBoltColor(i, CRGB::Black);
+  setCloudColor(i, CRGB::DimGray);
+ }
+}
+ 
+//STORM DEFINITIONS
+
 void stormIntro() {
   Serial.println("stormIntro");
   //Dim the leds over 5 seconds
   for (int i = 0; i < 100; i++) {
-     dimClouds();
+     dimClouds(8);
      FastLED.show();
      delay(50);
   }
@@ -390,7 +452,7 @@ void stormIntro() {
   musicPlayer.startPlayingFile("intro.mp3");
   //flicker leds for 9 seconds;
   for (int i = 0; i < 100; i++) {
-     flickerClouds();
+     flickerClouds(50);
      FastLED.show();
      delay(90);
   }
@@ -406,56 +468,13 @@ void stormIntro() {
   } 
 }
 
-int tick() {
-  //Update button color or animate it or something if using RGB
-  stormCountdown--;
-  trickCountdown--;
-  trickButtonExhausted--;
-  int input = 0;
-  trailLighting();
-  if(trickButtonExhausted > 0) {
-   deactivateButton(); 
-  }
-  FastLED.show();
-  for(int i = 0; i < 10; i++) {
-    input = checkForInput();
-    Serial.println(digitalRead(input));
-
-    if(input == 1 && trickButtonExhausted <= 0) {
-     return input; 
-    }
-    
-    if(input == 2) {
-     return input; 
-    }
-    delay(100);
-  }
-  Serial.println("tick");
-  return 0;
-}
-
-/*************************
- * Storms and modes
- *************************/
- 
- //TRAIL LIGHTING MODE
- 
-void trailLighting() {
- musicPlayer.stopPlaying();
- for(int i = 0; i < NUM_CLOUDS; i++) {
-  setBoltColor(i, CRGB::Black);
-  setCloudColor(i, CRGB::Gray);
- }
-}
- 
-//STORM DEFINITIONS
 void prideStorm() {
   static int currentColor = 0;
 
   currentRainbowPalette = RainbowColors_p;
   currentRainbowBlending = LINEARBLEND;
   
-  playBackgroundSound("backwav3.mp3");
+  //playBackgroundSound("backwav3.mp3");
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
   fillCloudsFromPaletteColors( startIndex);
@@ -471,14 +490,14 @@ void prideStormIntro() {
   //TODO: Play Enchant_target_slow.mp3
   for(int i = 0; i < NUM_CLOUDS; i++) {
     setBoltColor(i, CRGB::Black);
-    setCloudColor(i, rainbowColors[i % NUM_CLOUDS]);
+    setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
     //delay(1000);
   }
   //delay(3000);
 }
 
 void fireStorm() {
-  playBackgroundSound("backfire.mp3");
+  //playBackgroundSound("backfire.mp3");
   currentFlamePalette = 0;
   flameClouds(); 
   randomBolt(1, flashColors[currentFlamePalette]); 
@@ -503,7 +522,7 @@ void rainbowStormIntro() {
 }
 
 void iceStorm() {
-  playBackgroundSound("backwind.mp3");
+  //playBackgroundSound("backwind.mp3");
   currentFlamePalette = 1;
   flameClouds(); 
   randomBolt(1, flashColors[currentFlamePalette]); 
@@ -515,20 +534,29 @@ void iceStormIntro() {
 }
 
 void greenStorm() {
-  playBackgroundSound("backwavy.mp3");
+  //playBackgroundSound("backwavy.mp3");
   currentFlamePalette = 3;
   flameClouds(); 
   randomBolt(1, flashColors[currentFlamePalette]); 
 }
 
 void purpleStorm() {
-  playBackgroundSound("backwav3.mp3");
+  //playBackgroundSound("backwav3.mp3");
   currentFlamePalette = 4;
   flameClouds(); 
   randomBolt(1, flashColors[currentFlamePalette]); 
 }
- //TRICK DEFINITIONS
-void trick1() {
+
+//TRICK DEFINITIONS
+
+void trickIntro() {
+  for (int i = 0; i < 12; i++) {
+    dimCloudsToBlack(8);
+    delay(10);
+  }
+}
+
+void rainbowTrick1() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("rune1.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
@@ -537,35 +565,104 @@ void trick1() {
     delay(500);
   }
   delay(5000);
+  trickInProgress = false;
 }
 
-void trick2() {
+void rainbowTrick2() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("rune2.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
-    setCloudColor(i - 1, CRGB::Black);
+    setCloudColor(i - 1, CRGB::DimGray);
     setCloudColor(i, rainbowColors[i]);
     FastLED.show();
     delay(500);
   }
-  delay(2000);
-} 
+  setCloudColor(NUM_CLOUDS -1, CRGB::DimGray);
+  trickInProgress = false;
 
-void trick3() {
+}
+
+void rainbowTrick3() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("rune3.mp3");
-  for(int i = 0; i < NUM_CLOUDS; i++){
-    setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i]);
-    setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i]);
+  for(int i = 0; i < NUM_CLOUDS * 2; i++){
+    setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
-    delay(500);
+    delay(250);
   }
   delay(2000);
+  trickInProgress = false;
+
 }  
+
+void flameTrick() {
+  currentFlamePalette = 0;
+  flameClouds();  
+  playBackgroundSound("backfire.mp3");
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 10) {
+      trickInProgress = false;
+  }
+}
+
+void iceTrick() {
+  currentFlamePalette = 1;
+  flameClouds();  
+  playBackgroundSound("ticestor.mp3");
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 12) {
+      trickInProgress = false;
+      musicPlayer.stopPlaying();
+  }
+}
+
+void greenTrick() {
+  currentFlamePalette = 3;
+  flameClouds();  
+  playBackgroundSound("backtele.mp3");
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 10) {
+      trickInProgress = false;
+  }
+}
+
+void purpleTrick() {
+  currentFlamePalette = 4;
+  flameClouds();  
+  playBackgroundSound("backele5.mp3");
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 10) {
+      trickInProgress = false;
+  }
+}
+
+void sparkleTrick() {
+  playBackgroundSound("tsparkle.mp3");
+  flickerClouds(25);
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 5) {
+      trickInProgress = false;
+  }
+}
+
+void sparkleColorsTrick() {
+  playBackgroundSound("tflower2.mp3");
+  flickerCloudsColors(5);
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 5) {
+      trickInProgress = false;
+  }
+}
+
+void sparkleColorsPersistentTrick() {
+  playBackgroundSound("tflower1.mp3");
+  flickerCloudsColorsPersistent(25);
+  if(currentTrickFrame >= FRAMES_PER_SECOND * 4) {
+      trickInProgress = false;
+  }
+}
+
+void fizzleTrick() {
+  
+}
  //UTILITY FUNCTIONS
  
 void playBackgroundSound(char* filename) {
-  return; //Not using background sounds for now.
+  //return; //deactivateBackgroundSounds
   if (musicPlayer.stopped()) {
     musicPlayer.stopPlaying();
     musicPlayer.setVolume(90,90);
@@ -677,18 +774,48 @@ void setCloudColor(int cloud, CRGB color) {
   }
 }
 
-void dimClouds() {
+void dimClouds(int factor) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
-    cloudLeds[i].fadeLightBy( 8 );
+    cloudLeds[i].fadeLightBy(factor);
+  }
+}
+void dimCloudsToBlack(int factor) {
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    cloudLeds[i].fadeLightBy(factor);
   }
 }
 
-void flickerClouds() {
+void brightenClouds(int factor) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
-    if(random(0,50) == 0) {
-      cloudLeds[i] = CRGB::White; 
+    cloudLeds[i].fadeLightBy(factor);
+  }
+}
+
+void flickerClouds(int probability) {
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      cloudLeds[i] = CRGB::WhiteSmoke; 
     } else {
       cloudLeds[i] = 0x202020;
+    }
+  }
+}
+
+void flickerCloudsColors(int probability) {  
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      cloudLeds[i] = rainbowColors[random(0,5)]; 
+    } else {
+      cloudLeds[i] = 0x202020;
+    }
+  }
+}
+
+void flickerCloudsColorsPersistent(int probability) {  
+  Serial.println("flickerCloudsColorsPersistent");
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      cloudLeds[i] = rainbowColors[random(0,5)]; 
     }
   }
 }
