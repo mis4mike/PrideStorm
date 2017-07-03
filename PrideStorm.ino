@@ -71,6 +71,8 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
 #define NUM_BOLT_LEDS LEDS_PER_BOLT * NUM_CLOUDS
 
+//predefined colors
+#define TRAIL_LIGHTING_COLOR CRGB::DimGray
 
 //For fire animations
 #define NUM_FLAME_PALETTES 5
@@ -397,21 +399,31 @@ void animate() {
              break;
      case 2: iceTrick();
              break;
-     case 3: rainbowTrick2();
+     case 3: fizzleTrick(20);
+             break;
+     case 4: rainbowTrick2();
              break;     
-     case 4: greenTrick();
+     case 5: greenTrick();
              break;
-     case 5: rainbowTrick3();
+     case 6: fizzleTrick(40);
              break;
-     case 6: sparkleColorsTrick();
+     case 7: rainbowTrick3();
              break;
-     case 7: purpleTrick();
+     case 8: sparkleColorsTrick();
              break;
-     case 8: sparkleTrick();
+     case 9: purpleTrick();
              break;
-     case 9: sparkleColorsPersistentTrick();
-             break;
-     default: flameTrick();
+     case 10: fizzleTrick(60);
+              break;
+     case 11: sparkleTrick();
+              break;
+     case 12: fizzleTrick(20);
+              break;
+     case 13: sparkleColorsPersistentTrick();
+              break;
+     case 14: flameTrick();
+              break;
+     default: fizzleTrick(60);
               currentTrick = 0;
     }    
     currentTrickFrame++;
@@ -432,7 +444,7 @@ void trailLighting() {
  musicPlayer.stopPlaying();
  for(int i = 0; i < NUM_CLOUDS; i++) {
   setBoltColor(i, CRGB::Black);
-  setCloudColor(i, CRGB::DimGray);
+  setCloudColor(i, TRAIL_LIGHTING_COLOR);
  }
 }
  
@@ -442,9 +454,7 @@ void stormIntro() {
   Serial.println("stormIntro");
   //Dim the leds over 5 seconds
   for (int i = 0; i < 100; i++) {
-     dimClouds(8);
-     FastLED.show();
-     delay(50);
+     dimClouds(8, 50);
   }
   delay(2000);
   
@@ -550,10 +560,12 @@ void purpleStorm() {
 //TRICK DEFINITIONS
 
 void trickIntro() {
-  for (int i = 0; i < 12; i++) {
-    dimCloudsToBlack(8);
-    delay(10);
-  }
+  fadeCloudsToBlack();
+}
+
+void trickConclusion() {
+  fadeCloudsToBlack();
+  fadeToTrailLighting(); 
 }
 
 void rainbowTrick1() {
@@ -565,6 +577,8 @@ void rainbowTrick1() {
     delay(500);
   }
   delay(5000);
+  
+  trickConclusion();
   trickInProgress = false;
 }
 
@@ -572,12 +586,26 @@ void rainbowTrick2() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("rune2.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
-    setCloudColor(i - 1, CRGB::DimGray);
+    setCloudColor(i - 1, TRAIL_LIGHTING_COLOR);
     setCloudColor(i, rainbowColors[i]);
     FastLED.show();
-    delay(500);
+    switch(i) {
+      case 0: delay(200);
+              break;
+      case 1: delay(200);
+              break;
+      case 2: delay(200);
+              break;
+      case 3: delay(400);
+              break;
+      case 4: delay(400);
+              break;
+      case 5: delay(200);
+              break;
+          
+    }
   }
-  setCloudColor(NUM_CLOUDS -1, CRGB::DimGray);
+  setCloudColor(NUM_CLOUDS -1, TRAIL_LIGHTING_COLOR);
   trickInProgress = false;
 
 }
@@ -591,6 +619,7 @@ void rainbowTrick3() {
     delay(250);
   }
   delay(2000);
+  trickConclusion();
   trickInProgress = false;
 
 }  
@@ -600,7 +629,8 @@ void flameTrick() {
   flameClouds();  
   playBackgroundSound("backfire.mp3");
   if(currentTrickFrame >= FRAMES_PER_SECOND * 10) {
-      trickInProgress = false;
+    trickConclusion();
+    trickInProgress = false;
   }
 }
 
@@ -610,7 +640,7 @@ void iceTrick() {
   playBackgroundSound("ticestor.mp3");
   if(currentTrickFrame >= FRAMES_PER_SECOND * 12) {
       trickInProgress = false;
-      musicPlayer.stopPlaying();
+      trickConclusion();
   }
 }
 
@@ -620,6 +650,7 @@ void greenTrick() {
   playBackgroundSound("backtele.mp3");
   if(currentTrickFrame >= FRAMES_PER_SECOND * 10) {
       trickInProgress = false;
+      trickConclusion();
   }
 }
 
@@ -629,6 +660,7 @@ void purpleTrick() {
   playBackgroundSound("backele5.mp3");
   if(currentTrickFrame >= FRAMES_PER_SECOND * 10) {
       trickInProgress = false;
+      trickConclusion();
   }
 }
 
@@ -637,6 +669,7 @@ void sparkleTrick() {
   flickerClouds(25);
   if(currentTrickFrame >= FRAMES_PER_SECOND * 5) {
       trickInProgress = false;
+      trickConclusion();
   }
 }
 
@@ -645,6 +678,7 @@ void sparkleColorsTrick() {
   flickerCloudsColors(5);
   if(currentTrickFrame >= FRAMES_PER_SECOND * 5) {
       trickInProgress = false;
+      trickConclusion();
   }
 }
 
@@ -653,11 +687,40 @@ void sparkleColorsPersistentTrick() {
   flickerCloudsColorsPersistent(25);
   if(currentTrickFrame >= FRAMES_PER_SECOND * 4) {
       trickInProgress = false;
+      trickConclusion();
   }
 }
 
-void fizzleTrick() {
-  
+void fizzleTrick(int wait) {
+  musicPlayer.startPlayingFile("tfizzle.mp3");
+  trickConclusion();
+  trickConclusion();
+  setAllCloudColors(CRGB::Black);
+  FastLED.show();
+  delay(wait);
+  FastLED.show();
+  setAllCloudColors(TRAIL_LIGHTING_COLOR);
+  FastLED.show();
+  delay(wait);
+  FastLED.show();
+  setAllCloudColors(CRGB::Black);
+  FastLED.show();
+  delay(wait);
+  FastLED.show();
+  setAllCloudColors(TRAIL_LIGHTING_COLOR);
+  FastLED.show();
+  delay(wait);
+  FastLED.show();
+  setAllCloudColors(CRGB::Black);
+  FastLED.show();
+  delay(wait);
+  FastLED.show();
+  setAllCloudColors(TRAIL_LIGHTING_COLOR);
+  FastLED.show();
+  delay(wait);
+  FastLED.show();
+  trickConclusion();
+  trickInProgress = false;
 }
  //UTILITY FUNCTIONS
  
@@ -774,21 +837,48 @@ void setCloudColor(int cloud, CRGB color) {
   }
 }
 
-void dimClouds(int factor) {
-  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
-    cloudLeds[i].fadeLightBy(factor);
-  }
+void setAllCloudColors(CRGB color){
+ for(int i = 0; i < NUM_CLOUDS; i++) {
+   setCloudColor(i, color);
+ } 
 }
-void dimCloudsToBlack(int factor) {
-  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
-    cloudLeds[i].fadeLightBy(factor);
+
+void fadeCloudsToBlack() {
+  for(int i = 0; i < 100; i++){
+    dimCloudsToBlack(16, 10);
   }
 }
 
-void brightenClouds(int factor) {
+void fadeToTrailLighting() {
+  setAllCloudColors(0x010101);
+  // while(uint32_t(cloudLeds[0]) < TRAIL_LIGHTING_COLOR) { //This is the right way to do it
+  for (int i = 0; i < 11; i++) {
+    brightenClouds(16,15);
+  }
+}
+
+void dimClouds(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i].fadeLightBy(factor);
   }
+  FastLED.show();
+  delay(wait);
+}
+
+void dimCloudsToBlack(int factor, int wait) {
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    cloudLeds[i].fadeToBlackBy(factor);
+  }
+  FastLED.show();
+  delay(wait);
+}
+
+void brightenClouds(int factor, int wait) {
+  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+    cloudLeds[i] += cloudLeds[i].fadeLightBy(factor);
+  }
+  FastLED.show();
+  delay(wait);
 }
 
 void flickerClouds(int probability) {
