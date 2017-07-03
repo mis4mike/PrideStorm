@@ -85,9 +85,6 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 struct CRGB cloudLeds[NUM_CLOUD_LEDS];
 struct CRGB boltLeds[NUM_BOLT_LEDS];
 
-int mode = 1;
-bool buttonDown = false;
-
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
 // Parameter 3 = pixel type flags, add together as needed:
