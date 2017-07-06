@@ -64,8 +64,8 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define FRAMES_PER_SECOND 60
 
 #define NUM_CLOUDS 6
-#define LEDS_PER_CLOUD 1
-#define LEDS_PER_BOLT 1
+#define LEDS_PER_CLOUD 12
+#define LEDS_PER_BOLT 9
 #define CLOUDS_PIN 11
 #define BOLTS_PIN 12
 #define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
@@ -95,7 +95,7 @@ struct CRGB boltLeds[NUM_BOLT_LEDS];
 
 int stormCountdown = 300;
 int trickCountdown = 0;
-int currentStorm = 0;
+int currentStorm = 5;
 int currentTrick = 0;
 int currentTrickFrame = 0;
 int inputStatus = 0;
@@ -129,12 +129,12 @@ void setup() {
      while (1);
   }
   Serial.println(F("VS1053 found"));
-  /*
+  
   if (!SD.begin(CARDCS)) {
     Serial.println(F("SD failed, or not present"));
     while (1);  // don't do anything more
   }
-*/
+
   // list files
   //printDirectory(SD.open("/"), 0);
   
@@ -149,7 +149,7 @@ void setup() {
   musicPlayer.useInterrupt(VS1053_FILEPLAYER_PIN_INT);  // DREQ int
   
   // Play one file, don't return until complete
-  //musicPlayer.playFullFile("startup.mp3");
+  musicPlayer.playFullFile("startup.mp3");
 
   //BUTTON SETUP
   pinMode(PUBLIC_BUTTON_PIN, INPUT);
@@ -188,13 +188,13 @@ void startupDebug() {
 void loadPalettes(){
   // These are other ways to set up the color palette for the 'fire'.
   // First, a gradient from black to red to yellow to white -- similar to HeatColors_p
-  flamePalettes[0] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::WhiteSmoke);
+  flamePalettes[0] = CRGBPalette16( CRGB::DarkRed, CRGB::Red, CRGB::Yellow, CRGB::WhiteSmoke);
   flashColors[0] = CRGB::Blue;
   // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
-  flamePalettes[1] = CRGBPalette16( CRGB::Black, CRGB::Blue, CRGB::Aqua,  CRGB::WhiteSmoke);
+  flamePalettes[1] = CRGBPalette16( CRGB::DarkBlue, CRGB::Blue, CRGB::Aqua,  CRGB::WhiteSmoke);
   flashColors[1] = CRGB::WhiteSmoke;
   // Third, here's a simpler, three-step gradient, from black to red to white
-  flamePalettes[2] = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::WhiteSmoke);
+  flamePalettes[2] = CRGBPalette16( CRGB::DarkRed, CRGB::Red, CRGB::WhiteSmoke);
   flashColors[2] = CRGB::WhiteSmoke; 
   //Green
   flamePalettes[3] = CRGBPalette16( CRGB::DarkGreen, CRGB::Green, CRGB::WhiteSmoke);
@@ -312,7 +312,7 @@ int checkForInput() {
 
 void freeTrick() {
     trickCountdown = 0;
-    trickButtonExhausted = 5;
+    trickButtonExhausted = 60;
     stormCountdown += 90; 
     deactivateButton();
 }
@@ -338,7 +338,7 @@ void demoStorm() {
 }
 
 void nextTrick() {
-    trickCountdown = random16(120, 180);
+    trickCountdown = random16(180, 300);
     stormCountdown += 10;
     currentTrick++;
     trickInProgress = true;
@@ -349,7 +349,7 @@ void nextTrick() {
 }
 
 void nextStorm() {
-   stormCountdown = random16(300,600); //only storm every 5-10 minutes
+   stormCountdown = random16(900,1800); //only storm every 15-30 minutes
    trickCountdown = 30;
    currentStorm++;
    stormInProgress = true;
@@ -383,7 +383,8 @@ void animate() {
              break; 
      case 6: rainbowStorm();
              break;             
-     default: currentStorm = 0;
+     default: rainbowTrick1();
+              currentStorm = 0;
               stormClock = 0;
               stormInProgress = false;
               //TODO: We looped. Do something special here?
@@ -458,7 +459,7 @@ void stormIntro() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("intro.mp3");
   //flicker leds for 9 seconds;
-  for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < 70; i++) {
      flickerClouds(50);
      FastLED.show();
      delay(90);
@@ -470,7 +471,7 @@ void stormIntro() {
              break;
      case 2: fireStormIntro();
              break;
-     case 3: rainbowStormIntro();
+     case 6: rainbowStormIntro();
              break;  
   } 
 }
@@ -632,6 +633,8 @@ void flameTrick() {
 }
 
 void iceTrick() {
+  Serial.println("iceTrick");
+
   currentFlamePalette = 1;
   flameClouds();  
   playBackgroundSound("ticestor.mp3");
@@ -723,9 +726,11 @@ void fizzleTrick(int wait) {
  
 void playBackgroundSound(char* filename) {
   //return; //deactivateBackgroundSounds
+  Serial.println(filename);
+
   if (musicPlayer.stopped()) {
     musicPlayer.stopPlaying();
-    musicPlayer.setVolume(90,90);
+    musicPlayer.setVolume(45,45);
     musicPlayer.startPlayingFile(filename);
   }
 }
@@ -743,6 +748,8 @@ int randomBolt(int boltsPerSecond, CRGB color) {
              setBoltColor(bolt, color);
              sound = "bolt" + String(currentStorm) + String("-") + String(random16(0, numBoltSounds[currentStorm - 1]) + 1) + String(".mp3");
              sound.toCharArray(fileName, 12);
+             Serial.print("Bolt!");
+             Serial.println(fileName);
              musicPlayer.stopPlaying();
              musicPlayer.setVolume(5,5);
              musicPlayer.startPlayingFile(fileName);
@@ -785,10 +792,13 @@ int randomRainbowBolt(int boltsPerSecond) {
     switch(frame) {
      case 0: bolt = random16(0,NUM_CLOUDS);
              setBoltColor(bolt, rainbowColors[bolt]);
-             sound = "bolt6" + String("-") + String(random16(0, numBoltSounds[6]) + 1) + String(".mp3");
+             sound = "bolt" + String(currentStorm) + String("-") + String(random16(0, numBoltSounds[currentStorm - 1]) + 1) + String(".mp3");
+             sound.toCharArray(fileName, 12);
+             Serial.print("Bolt!");
+             Serial.println(fileName);
              musicPlayer.stopPlaying();
              musicPlayer.setVolume(5,5);
-             musicPlayer.startPlayingFile(fileName);
+             musicPlayer.startPlayingFile(fileName);             
              break;
      case 5:   setBoltColor(bolt, CRGB::Black);
                break;
