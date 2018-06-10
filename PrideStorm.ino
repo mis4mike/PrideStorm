@@ -35,6 +35,18 @@ Adafruit_VS1053_FilePlayer musicPlayer =
   // create shield-example object!
   Adafruit_VS1053_FilePlayer(SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS);
 
+/* SPEAKER CONTROL RELAYS */
+#define SPEAKER_CONTROL_PIN_1 53
+#define SPEAKER_CONTROL_PIN_2 51
+#define SPEAKER_CONTROL_PIN_3 49
+#define SPEAKER_CONTROL_PIN_4 47
+#define SPEAKER_CONTROL_PIN_5 35
+#define SPEAKER_CONTROL_PIN_6 33
+#define SPEAKER_CONTROL_PIN_7 31
+#define SPEAKER_CONTROL_PIN_8 29
+
+#define CLOUDS_PER_SPEAKER 2
+
 /*****************
 * BUTTONS SETUP
 *****************/
@@ -123,7 +135,16 @@ void setup() {
   Serial.write("setup\n");
 
   //SOUND SETUP
+  pinMode(SPEAKER_CONTROL_PIN_1, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_2, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_3, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_4, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_5, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_6, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_7, OUTPUT);
+  pinMode(SPEAKER_CONTROL_PIN_8, OUTPUT);
 
+  allSpeakersOff();
   if (! musicPlayer.begin()) { // initialise the music player
      Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
      while (1);
@@ -139,7 +160,7 @@ void setup() {
   //printDirectory(SD.open("/"), 0);
   
   // Set volume for left, right channels. lower numbers == louder volume!
-  musicPlayer.setVolume(20,20);
+  musicPlayer.setVolume(10,10);
 
   // Timer interrupts are not suggested, better to use DREQ interrupt!
   //musicPlayer.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT); // timer int
@@ -149,6 +170,7 @@ void setup() {
   musicPlayer.useInterrupt(VS1053_FILEPLAYER_PIN_INT);  // DREQ int
   
   // Play one file, don't return until complete
+  allSpeakersOn();
   musicPlayer.playFullFile("startup.mp3");
 
   //BUTTON SETUP
@@ -344,12 +366,13 @@ void nextTrick() {
     trickInProgress = true;
     animationBeginning = true;
     currentTrickFrame = 0;
+    allSpeakersOn();
     Serial.print("Next Trick! ");
     Serial.println(currentTrick);
 }
 
 void nextStorm() {
-   stormCountdown = random16(900,1800); //only storm every 15-30 minutes
+   stormCountdown = random16(300,600); //only storm every 10-15 minutes
    trickCountdown = 30;
    currentStorm++;
    stormInProgress = true;
@@ -440,6 +463,7 @@ void animate() {
  
 void trailLighting() {
  musicPlayer.stopPlaying();
+ allSpeakersOff();
  for(int i = 0; i < NUM_CLOUDS; i++) {
   setBoltColor(i, CRGB::Black);
   setCloudColor(i, TRAIL_LIGHTING_COLOR);
@@ -456,6 +480,7 @@ void stormIntro() {
   }
   delay(2000);
   
+  allSpeakersOn();
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("intro.mp3");
   //flicker leds for 9 seconds;
@@ -464,7 +489,6 @@ void stormIntro() {
      FastLED.show();
      delay(90);
   }
-  
   
   switch(currentStorm) {
      case 1: prideStormIntro();
@@ -555,7 +579,9 @@ void purpleStorm() {
   randomBolt(1, flashColors[currentFlamePalette]); 
 }
 
-//TRICK DEFINITIONS
+/////////////////////
+//TRICK DEFINITIONS//
+/////////////////////
 
 void trickIntro() {
   fadeCloudsToBlack();
@@ -727,6 +753,7 @@ void fizzleTrick(int wait) {
 void playBackgroundSound(char* filename) {
   //return; //deactivateBackgroundSounds
   Serial.println(filename);
+  allSpeakersOn();
 
   if (musicPlayer.stopped()) {
     musicPlayer.stopPlaying();
@@ -750,6 +777,9 @@ int randomBolt(int boltsPerSecond, CRGB color) {
              sound.toCharArray(fileName, 12);
              Serial.print("Bolt!");
              Serial.println(fileName);
+             allSpeakersOff();
+             speakerOn(int(bolt / CLOUDS_PER_SPEAKER));
+             Serial.print(int(bolt / CLOUDS_PER_SPEAKER));
              musicPlayer.stopPlaying();
              musicPlayer.setVolume(5,5);
              musicPlayer.startPlayingFile(fileName);
@@ -762,6 +792,7 @@ int randomBolt(int boltsPerSecond, CRGB color) {
                frame = 0;
                isAnimating = false;
                bolt = random(0,NUM_CLOUDS);
+               
     }
     frame++;
 
@@ -796,6 +827,9 @@ int randomRainbowBolt(int boltsPerSecond) {
              sound.toCharArray(fileName, 12);
              Serial.print("Bolt!");
              Serial.println(fileName);
+             allSpeakersOff();             
+             speakerOn(int(bolt / CLOUDS_PER_SPEAKER));
+             Serial.print(int(bolt / CLOUDS_PER_SPEAKER));
              musicPlayer.stopPlaying();
              musicPlayer.setVolume(5,5);
              musicPlayer.startPlayingFile(fileName);             
@@ -956,6 +990,67 @@ void fillCloudsFromPaletteColors( uint8_t colorIndex)
         cloudLeds[i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
         colorIndex += 3;
     }
+}
+
+/********************
+ * Speaker Controls
+********************/
+
+void allSpeakersOn() {
+  digitalWrite(SPEAKER_CONTROL_PIN_1, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_2, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_3, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_4, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_5, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_6, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_7, LOW);
+  digitalWrite(SPEAKER_CONTROL_PIN_8, LOW);
+}
+
+void allSpeakersOff() {
+  digitalWrite(SPEAKER_CONTROL_PIN_1, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_2, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_3, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_4, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_5, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_6, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_7, HIGH);
+  digitalWrite(SPEAKER_CONTROL_PIN_8, HIGH);
+}
+
+void speakerOn(int speaker) {
+  Serial.print(speaker);
+  switch(speaker) {
+    case 0:   digitalWrite(SPEAKER_CONTROL_PIN_1, LOW);
+              digitalWrite(SPEAKER_CONTROL_PIN_2, LOW);
+              break;
+    case 1:   digitalWrite(SPEAKER_CONTROL_PIN_3, LOW);
+              digitalWrite(SPEAKER_CONTROL_PIN_4, LOW);
+              break;
+    case 2:   digitalWrite(SPEAKER_CONTROL_PIN_5, LOW);
+              digitalWrite(SPEAKER_CONTROL_PIN_6, LOW);
+              break;
+    case 3:   digitalWrite(SPEAKER_CONTROL_PIN_7, LOW);
+              digitalWrite(SPEAKER_CONTROL_PIN_8, LOW);
+              break;
+  }
+}
+
+void speakerOff(int speaker) {
+  switch(speaker) {
+    case 0:   digitalWrite(SPEAKER_CONTROL_PIN_1, HIGH);
+              digitalWrite(SPEAKER_CONTROL_PIN_2, HIGH);
+              break;
+    case 1:   digitalWrite(SPEAKER_CONTROL_PIN_3, HIGH);
+              digitalWrite(SPEAKER_CONTROL_PIN_4, HIGH);
+              break;
+    case 2:   digitalWrite(SPEAKER_CONTROL_PIN_5, HIGH);
+              digitalWrite(SPEAKER_CONTROL_PIN_6, HIGH);
+              break;
+    case 3:   digitalWrite(SPEAKER_CONTROL_PIN_7, HIGH);
+              digitalWrite(SPEAKER_CONTROL_PIN_8, HIGH);
+              break;
+  }  
 }
 
 /// File listing helper
