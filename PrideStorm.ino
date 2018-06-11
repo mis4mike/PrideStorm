@@ -78,10 +78,15 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define NUM_CLOUDS 6
 #define LEDS_PER_CLOUD 12
 #define LEDS_PER_BOLT 9
-#define CLOUDS_PIN 11
-#define BOLTS_PIN 12
+#define CLOUDS_PIN 37
+#define BOLTS_PIN 39
 #define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
 #define NUM_BOLT_LEDS LEDS_PER_BOLT * NUM_CLOUDS
+
+#define NUM_MINI_CLOUDS 8
+#define LEDS_PER_MINI_CLOUD 3
+#define MINI_CLOUDS_PIN 42
+#define NUM_MINI_CLOUD_LEDS NUM_MINI_CLOUDS * LEDS_PER_MINI_CLOUD
 
 //predefined colors
 #define TRAIL_LIGHTING_COLOR CRGB::DimGray
@@ -91,11 +96,9 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define COOLING  55
 #define SPARKING 120
 
-//CRGB clouds[NUM_CLOUDS * LEDS_PER_CLOUD];
-//CRGB bolts[NUM_CLOUDS * LEDS_PER_BOLT];
-
 struct CRGB cloudLeds[NUM_CLOUD_LEDS];
 struct CRGB boltLeds[NUM_BOLT_LEDS];
+struct CRGB miniCloudLeds[NUM_MINI_CLOUD_LEDS];
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = pin number (most are valid)
@@ -106,7 +109,7 @@ struct CRGB boltLeds[NUM_BOLT_LEDS];
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 
 int stormCountdown = 300;
-int trickCountdown = 0;
+int trickCountdown = 180;
 int currentStorm = 5;
 int currentTrick = 0;
 int currentTrickFrame = 0;
@@ -190,6 +193,7 @@ void setup() {
   delay(1000); // sanity delay
   LEDS.addLeds<WS2811, CLOUDS_PIN, COLOR_ORDER>(cloudLeds, NUM_CLOUD_LEDS);
   LEDS.addLeds<WS2811, BOLTS_PIN, COLOR_ORDER>(boltLeds, NUM_BOLT_LEDS);
+  LEDS.addLeds<WS2811, MINI_CLOUDS_PIN, COLOR_ORDER>(miniCloudLeds, NUM_MINI_CLOUD_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
   loadPalettes();
 
@@ -205,6 +209,8 @@ void startupDebug() {
  Serial.println(NUM_CLOUD_LEDS); 
  Serial.print("NUM_BOLT_LEDS: "); 
  Serial.println(NUM_BOLT_LEDS);
+ Serial.print("NUM_MINI_CLOUD_LEDS: "); 
+ Serial.println(NUM_MINI_CLOUD_LEDS);
 }
 
 void loadPalettes(){
@@ -239,8 +245,11 @@ void debugLeds() {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
    Serial.print(cloudLeds[i]); 
   }
-  for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+  for(int i = 0; i < NUM_BOLT_LEDS; i++) {
    Serial.print(boltLeds[i]); 
+  }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+   Serial.print(miniCloudLeds[i]); 
   }
 }
 
@@ -249,13 +258,19 @@ void ledTestStrip(){
   cloudLeds[i-1] = CRGB::Black;
   cloudLeds[i] = CRGB::WhiteSmoke;
   FastLED.show();
-  delay(35);
+  delay(30);
  } 
-  for(int i = 1; i < NUM_BOLT_LEDS; i++) {
+ for(int i = 1; i < NUM_BOLT_LEDS; i++) {
   boltLeds[i-1] = CRGB::Black;
   boltLeds[i] = CRGB::WhiteSmoke;
   FastLED.show();
-  delay(35);
+  delay(30);
+ } 
+ for(int i = 1; i < NUM_MINI_CLOUD_LEDS; i++) {
+  boltLeds[i-1] = CRGB::Black;
+  boltLeds[i] = CRGB::WhiteSmoke;
+  FastLED.show();
+  delay(30);
  } 
 }
 
@@ -352,7 +367,6 @@ void activateButton() {
 
 void deactivateButton() {
   digitalWrite(PUBLIC_BUTTON_LIGHT_PIN, LOW);  
-
 }
 
 void demoStorm() {
@@ -509,7 +523,7 @@ void prideStorm() {
   //playBackgroundSound("backwav3.mp3");
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
-  fillCloudsFromPaletteColors( startIndex);
+  fillCloudsFromPaletteColors(startIndex);
   if(randomBolt(1, rainbowColors[currentColor]) == 1) {
     currentColor++;
     if(currentColor >= sizeof(rainbowColors) / sizeof(rainbowColors[0])) {
@@ -600,6 +614,12 @@ void rainbowTrick1() {
     FastLED.show();
     delay(500);
   }
+  for(int i = 0; i < NUM_MINI_CLOUDS; i++){
+    setCloudColor(i, rainbowColors[i]);
+    setMiniCloudColor(i, rainbowColors[i]);
+    FastLED.show();
+    delay(500);
+  } 
   delay(5000);
   
   trickConclusion();
@@ -629,6 +649,27 @@ void rainbowTrick2() {
           
     }
   }
+  
+  for(int i = 0; i < NUM_MINI_CLOUDS; i++){
+    setMiniCloudColor(i - 1, TRAIL_LIGHTING_COLOR);
+    setMiniCloudColor(i, rainbowColors[i]);
+    FastLED.show();
+    switch(i) {
+      case 0: delay(100);
+              break;
+      case 1: delay(100);
+              break;
+      case 2: delay(100);
+              break;
+      case 3: delay(100);
+              break;
+      case 4: delay(100);
+              break;
+      case 5: delay(100);
+              break;
+    }
+  }
+  
   setCloudColor(NUM_CLOUDS -1, TRAIL_LIGHTING_COLOR);
   trickInProgress = false;
 
@@ -639,6 +680,7 @@ void rainbowTrick3() {
   musicPlayer.startPlayingFile("rune3.mp3");
   for(int i = 0; i < NUM_CLOUDS * 2; i++){
     setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i % NUM_RAINBOW_COLORS]);
+    setMiniCloudColor(random(0,NUM_MINI_CLOUDS), rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
     delay(250);
   }
@@ -659,8 +701,6 @@ void flameTrick() {
 }
 
 void iceTrick() {
-  Serial.println("iceTrick");
-
   currentFlamePalette = 1;
   flameClouds();  
   playBackgroundSound("ticestor.mp3");
@@ -878,9 +918,22 @@ void setCloudColor(int cloud, CRGB color) {
   }
 }
 
+void setMiniCloudColor(int cloud, CRGB color) {
+  if(cloud < 0 || cloud > NUM_MINI_CLOUDS) {
+    return; 
+  }
+  int cloudEnd = LEDS_PER_MINI_CLOUD * (cloud + 1);
+  for(int i = cloud * LEDS_PER_MINI_CLOUD; i < cloudEnd; i++) {
+    miniCloudLeds[i] = color;
+  }
+}
+
 void setAllCloudColors(CRGB color){
  for(int i = 0; i < NUM_CLOUDS; i++) {
    setCloudColor(i, color);
+ } 
+  for(int i = 0; i < NUM_MINI_CLOUDS; i++) {
+   setMiniCloudColor(i, color);
  } 
 }
 
@@ -902,6 +955,9 @@ void dimClouds(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i].fadeLightBy(factor);
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    miniCloudLeds[i].fadeLightBy(factor);
+  }
   FastLED.show();
   delay(wait);
 }
@@ -910,6 +966,10 @@ void dimCloudsToBlack(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i].fadeToBlackBy(factor);
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    miniCloudLeds[i].fadeToBlackBy(factor);
+  }
+
   FastLED.show();
   delay(wait);
 }
@@ -918,6 +978,9 @@ void brightenClouds(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i] += cloudLeds[i].fadeLightBy(factor);
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    miniCloudLeds[i] += miniCloudLeds[i].fadeLightBy(factor);
+  }  
   FastLED.show();
   delay(wait);
 }
@@ -930,6 +993,13 @@ void flickerClouds(int probability) {
       cloudLeds[i] = 0x202020;
     }
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      miniCloudLeds[i] = CRGB::WhiteSmoke; 
+    } else {
+      miniCloudLeds[i] = 0x202020;
+    }
+  }
 }
 
 void flickerCloudsColors(int probability) {  
@@ -940,45 +1010,73 @@ void flickerCloudsColors(int probability) {
       cloudLeds[i] = 0x202020;
     }
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      miniCloudLeds[i] = rainbowColors[random(0,5)]; 
+    } else {
+      miniCloudLeds[i] = 0x202020;
+    }
+  }  
 }
 
 void flickerCloudsColorsPersistent(int probability) {  
-  Serial.println("flickerCloudsColorsPersistent");
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
       cloudLeds[i] = rainbowColors[random(0,5)]; 
     }
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      miniCloudLeds[i] = rainbowColors[random(0,5)]; 
+    }
+  }  
 }
 
 void flameClouds()
 {
   // Array of temperature readings at each simulation cell
   static byte heat[NUM_CLOUD_LEDS];
+  static byte miniCloudHeat[NUM_MINI_CLOUD_LEDS];
 
   // Step 1.  Cool down every cell a little
-    for( int i = 0; i < NUM_CLOUD_LEDS; i++) {
-      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_CLOUD_LEDS) + 2));
+    for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
+      heat[i] = qsub8(heat[i],  random8(0, ((COOLING * 10) / NUM_CLOUD_LEDS) + 2));
     }
+    for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+      miniCloudHeat[i] = qsub8(miniCloudHeat[i], random8(0, ((COOLING * 10) / NUM_MINI_CLOUD_LEDS) + 2));
+    }    
   
     // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-    for( int k= NUM_CLOUD_LEDS - 1; k >= 2; k--) {
+    for(int k= NUM_CLOUD_LEDS - 1; k >= 2; k--) {
       heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
+    }
+    for(int k= NUM_MINI_CLOUD_LEDS - 1; k >= 2; k--) {
+      miniCloudHeat[k] = (miniCloudHeat[k - 1] + miniCloudHeat[k - 2] + miniCloudHeat[k - 2] ) / 3;
     }
     
     // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
     if( random8() < SPARKING ) {
       int y = random8(7);
-      heat[y] = qadd8( heat[y], random8(160,255) );
+      heat[y] = qadd8(heat[y], random8(160,255) );
+    }
+    if( random8() < SPARKING ) {
+      int y = random8(7);
+      miniCloudHeat[y] = qadd8(miniCloudHeat[y], random8(160,255) );
     }
 
     // Step 4.  Map from heat cells to LED colors
     for( int j = 0; j < NUM_CLOUD_LEDS; j++) {
       // Scale the heat value from 0-255 down to 0-240
       // for best results with color palettes.
-      byte colorindex = scale8( heat[j], 240);
-      cloudLeds[j] = ColorFromPalette( flamePalettes[currentFlamePalette], colorindex);
+      byte colorindex = scale8(heat[j], 240);
+      cloudLeds[j] = ColorFromPalette(flamePalettes[currentFlamePalette], colorindex);
     }
+    for( int j = 0; j < NUM_MINI_CLOUD_LEDS; j++) {
+      // Scale the heat value from 0-255 down to 0-240
+      // for best results with color palettes.
+      byte colorindex = scale8(miniCloudHeat[j], 240);
+      miniCloudLeds[j] = ColorFromPalette(flamePalettes[currentFlamePalette], colorindex);
+    }    
  
 }
 
@@ -990,6 +1088,10 @@ void fillCloudsFromPaletteColors( uint8_t colorIndex)
         cloudLeds[i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
         colorIndex += 3;
     }
+    for( int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+        miniCloudLeds[i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
+        colorIndex += 3;
+    }    
 }
 
 /********************
