@@ -4,6 +4,8 @@
 #include <Adafruit_VS1053.h>
 #include <SD.h>
 
+#include <MemoryFree.h>
+
 /***********************
 * SOUND SETUP
 ***********************/
@@ -83,7 +85,7 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
 #define NUM_BOLT_LEDS LEDS_PER_BOLT * NUM_CLOUDS
 
-#define NUM_MINI_CLOUDS 8
+#define NUM_MINI_CLOUDS 9
 #define LEDS_PER_MINI_CLOUD 3
 #define MINI_CLOUDS_PIN 42
 #define NUM_MINI_CLOUD_LEDS NUM_MINI_CLOUDS * LEDS_PER_MINI_CLOUD
@@ -239,6 +241,8 @@ void debugLoop() {
   Serial.println(trickCountdown);  
   Serial.println(stormInProgress);
   Serial.println(trickInProgress);
+  Serial.print("freeMemory()=");
+  Serial.println(freeMemory());
 }
 
 void debugLeds() {
@@ -267,8 +271,8 @@ void ledTestStrip(){
   delay(30);
  } 
  for(int i = 1; i < NUM_MINI_CLOUD_LEDS; i++) {
-  boltLeds[i-1] = CRGB::Black;
-  boltLeds[i] = CRGB::WhiteSmoke;
+  miniCloudLeds[i-1] = CRGB::Black;
+  miniCloudLeds[i] = CRGB::WhiteSmoke;
   FastLED.show();
   delay(30);
  } 
@@ -276,7 +280,7 @@ void ledTestStrip(){
 
 void loop() {
  
-  //debugLoop();
+  debugLoop();
   //debugLeds();
   
   if(stormInProgress || trickInProgress) {
@@ -482,6 +486,9 @@ void trailLighting() {
   setBoltColor(i, CRGB::Black);
   setCloudColor(i, TRAIL_LIGHTING_COLOR);
  }
+ for(int i = 0; i < NUM_MINI_CLOUDS; i++) {
+  setMiniCloudColor(i, TRAIL_LIGHTING_COLOR);
+ }
 }
  
 //STORM DEFINITIONS
@@ -524,7 +531,7 @@ void prideStorm() {
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
   fillCloudsFromPaletteColors(startIndex);
-  if(randomBolt(1, rainbowColors[currentColor]) == 1) {
+  if(randomBolt(1, rainbowColors[currentColor % NUM_RAINBOW_COLORS]) == 1) {
     currentColor++;
     if(currentColor >= sizeof(rainbowColors) / sizeof(rainbowColors[0])) {
       currentColor = 0;
@@ -562,7 +569,12 @@ void rainbowStorm() {
 void rainbowStormIntro() {
   for (int i = 0; i < NUM_CLOUDS; i++) {
    //TODO: Play blink dagger sound
-   setCloudColor(i, rainbowColors[i]); 
+   setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]); 
+   delay(1000);
+  }
+  for (int i = 0; i < NUM_MINI_CLOUDS; i++) {
+   //TODO: Play blink dagger sound
+   setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]); 
    delay(1000);
   }
 }
@@ -610,15 +622,15 @@ void rainbowTrick1() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("rune1.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
-    setCloudColor(i, rainbowColors[i]);
+    setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
     delay(500);
   }
   for(int i = 0; i < NUM_MINI_CLOUDS; i++){
-    setCloudColor(i, rainbowColors[i]);
-    setMiniCloudColor(i, rainbowColors[i]);
+    setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
+    setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
-    delay(500);
+    delay(250);
   } 
   delay(5000);
   
@@ -631,7 +643,7 @@ void rainbowTrick2() {
   musicPlayer.startPlayingFile("rune2.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
     setCloudColor(i - 1, TRAIL_LIGHTING_COLOR);
-    setCloudColor(i, rainbowColors[i]);
+    setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
     switch(i) {
       case 0: delay(200);
@@ -652,7 +664,7 @@ void rainbowTrick2() {
   
   for(int i = 0; i < NUM_MINI_CLOUDS; i++){
     setMiniCloudColor(i - 1, TRAIL_LIGHTING_COLOR);
-    setMiniCloudColor(i, rainbowColors[i]);
+    setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
     switch(i) {
       case 0: delay(100);
@@ -862,7 +874,7 @@ int randomRainbowBolt(int boltsPerSecond) {
   if(isAnimating) {
     switch(frame) {
      case 0: bolt = random16(0,NUM_CLOUDS);
-             setBoltColor(bolt, rainbowColors[bolt]);
+             setBoltColor(bolt, rainbowColors[bolt % NUM_RAINBOW_COLORS]);
              sound = "bolt" + String(currentStorm) + String("-") + String(random16(0, numBoltSounds[currentStorm - 1]) + 1) + String(".mp3");
              sound.toCharArray(fileName, 12);
              Serial.print("Bolt!");
@@ -876,7 +888,7 @@ int randomRainbowBolt(int boltsPerSecond) {
              break;
      case 5:   setBoltColor(bolt, CRGB::Black);
                break;
-     case 10:  setBoltColor(bolt, rainbowColors[bolt]);
+     case 10:  setBoltColor(bolt, rainbowColors[bolt % NUM_RAINBOW_COLORS]);
                break;
      case 40:  setBoltColor(bolt, CRGB::Black);
                frame = 0;
@@ -1005,14 +1017,14 @@ void flickerClouds(int probability) {
 void flickerCloudsColors(int probability) {  
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
-      cloudLeds[i] = rainbowColors[random(0,5)]; 
+      cloudLeds[i] = rainbowColors[random(0,5) % NUM_RAINBOW_COLORS]; 
     } else {
       cloudLeds[i] = 0x202020;
     }
   }
   for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
-      miniCloudLeds[i] = rainbowColors[random(0,5)]; 
+      miniCloudLeds[i] = rainbowColors[random(0,5) % NUM_RAINBOW_COLORS]; 
     } else {
       miniCloudLeds[i] = 0x202020;
     }
@@ -1022,12 +1034,12 @@ void flickerCloudsColors(int probability) {
 void flickerCloudsColorsPersistent(int probability) {  
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
-      cloudLeds[i] = rainbowColors[random(0,5)]; 
+      cloudLeds[i] = rainbowColors[random(0,5) % NUM_RAINBOW_COLORS]; 
     }
   }
   for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
-      miniCloudLeds[i] = rainbowColors[random(0,5)]; 
+      miniCloudLeds[i] = rainbowColors[random(0,5) % NUM_RAINBOW_COLORS]; 
     }
   }  
 }
@@ -1074,8 +1086,8 @@ void flameClouds()
     for( int j = 0; j < NUM_MINI_CLOUD_LEDS; j++) {
       // Scale the heat value from 0-255 down to 0-240
       // for best results with color palettes.
-      byte colorindex = scale8(miniCloudHeat[j], 240);
-      miniCloudLeds[j] = ColorFromPalette(flamePalettes[currentFlamePalette], colorindex);
+      byte colorindexMini = scale8(miniCloudHeat[j], 240);
+      miniCloudLeds[j] = ColorFromPalette(flamePalettes[currentFlamePalette], colorindexMini);
     }    
  
 }
@@ -1083,11 +1095,13 @@ void flameClouds()
 void fillCloudsFromPaletteColors( uint8_t colorIndex)
 {
     uint8_t brightness = 255;
+    uint8_t originalColorIndex = colorIndex;
     
     for( int i = 0; i < NUM_CLOUD_LEDS; i++) {
         cloudLeds[i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
         colorIndex += 3;
     }
+    colorIndex = originalColorIndex;
     for( int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
         miniCloudLeds[i] = ColorFromPalette( currentRainbowPalette, colorIndex, brightness, currentRainbowBlending);
         colorIndex += 3;
