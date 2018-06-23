@@ -78,8 +78,8 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 #define NUM_CLOUDS 6
 #define LEDS_PER_CLOUD 12
 #define LEDS_PER_BOLT 9
-#define CLOUDS_PIN 11
-#define BOLTS_PIN 12
+#define CLOUDS_PIN 37
+#define BOLTS_PIN 39
 #define NUM_CLOUD_LEDS LEDS_PER_CLOUD * NUM_CLOUDS
 #define NUM_BOLT_LEDS LEDS_PER_BOLT * NUM_CLOUDS
 
