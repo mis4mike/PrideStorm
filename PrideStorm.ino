@@ -176,7 +176,7 @@ void setup() {
   
   // Play one file, don't return until complete
   allSpeakersOn();
-  musicPlayer.playFullFile("startup.mp3");
+  musicPlayer.playFullFile("tflower1.mp3");
 
   //BUTTON SETUP
   pinMode(PUBLIC_BUTTON_PIN, INPUT);
@@ -337,7 +337,7 @@ int tick() {
     }
     delay(100);
   }
-  Serial.println("tick");
+  //Serial.println("tick");
   return 0;
 }
 
@@ -352,8 +352,11 @@ int checkForInput() {
 }
 
 void freeTrick() {
+    allSpeakersOn();
+    musicPlayer.playFullFile("tflower1.mp3");
+    return;
     trickCountdown = 0;
-    trickButtonExhausted = 60;
+    trickButtonExhausted = 10;
     stormCountdown += 90; 
     deactivateButton();
 }
@@ -402,6 +405,8 @@ void nextStorm() {
 
 void animate() {
   if(stormInProgress) {
+    //Serial.println("Animate storm!");
+
     if(animationBeginning) {
       stormIntro();
       animationBeginning = false;
@@ -433,6 +438,8 @@ void animate() {
   }
   
   if(trickInProgress) {
+    //Serial.println("Animate trick!");
+    //Serial.println("Frame: " + currentTrickFrame);
     switch(currentTrick) {
      case 1: rainbowTrick1();
              break;
@@ -467,9 +474,10 @@ void animate() {
     }    
     currentTrickFrame++;
   }
-  
+  //Serial.println("before FastLED.show()");
   FastLED.show(); // display this frame
   FastLED.delay(1000 / FRAMES_PER_SECOND); 
+  //Serial.println("Animate over.");
 }
 
 
@@ -494,12 +502,12 @@ void trailLighting() {
 //STORM DEFINITIONS
 
 void stormIntro() {
-  Serial.println("stormIntro");
+  //Serial.println("stormIntro");
   //Dim the leds over 5 seconds
   for (int i = 0; i < 100; i++) {
      dimClouds(8, 50);
   }
-  delay(2000);
+  delay(1000);
   
   allSpeakersOn();
   musicPlayer.stopPlaying();
@@ -527,7 +535,7 @@ void prideStorm() {
   currentRainbowPalette = RainbowColors_p;
   currentRainbowBlending = LINEARBLEND;
   
-  //playBackgroundSound("backwav3.mp3");
+  playBackgroundSound("backwav3.mp3");
   static uint8_t startIndex = 0;
   startIndex = startIndex + 1; /* motion speed */
   fillCloudsFromPaletteColors(startIndex);
@@ -720,6 +728,7 @@ void iceTrick() {
       trickInProgress = false;
       trickConclusion();
   }
+  //Serial.println("iceTrickOver");
 }
 
 void greenTrick() {
@@ -803,15 +812,15 @@ void fizzleTrick(int wait) {
  //UTILITY FUNCTIONS
  
 void playBackgroundSound(char* filename) {
-  //return; //deactivateBackgroundSounds
-  Serial.println(filename);
+  return; //deactivateBackgroundSounds
+  //Serial.println(filename);
   allSpeakersOn();
-
   if (musicPlayer.stopped()) {
     musicPlayer.stopPlaying();
     musicPlayer.setVolume(45,45);
     musicPlayer.startPlayingFile(filename);
   }
+  //Serial.println("playBackgroundSound over");
 }
  
 int randomBolt(int boltsPerSecond, CRGB color) {
@@ -1046,6 +1055,8 @@ void flickerCloudsColorsPersistent(int probability) {
 
 void flameClouds()
 {
+  //return; //disable flame clouts for debugging dual strip issue
+  
   // Array of temperature readings at each simulation cell
   static byte heat[NUM_CLOUD_LEDS];
   static byte miniCloudHeat[NUM_MINI_CLOUD_LEDS];
@@ -1072,8 +1083,8 @@ void flameClouds()
       heat[y] = qadd8(heat[y], random8(160,255) );
     }
     if( random8() < SPARKING ) {
-      int y = random8(7);
-      miniCloudHeat[y] = qadd8(miniCloudHeat[y], random8(160,255) );
+      int z = random8(7);
+      miniCloudHeat[z] = qadd8(miniCloudHeat[z], random8(160,255) );
     }
 
     // Step 4.  Map from heat cells to LED colors
