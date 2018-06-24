@@ -544,7 +544,9 @@ void prideStormIntro() {
   for(int i = 0; i < NUM_CLOUDS; i++) {
     setBoltColor(i, CRGB::Black);
     setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
-    //delay(1000);
+  }
+  for(int i = 0; i < NUM_MINI_CLOUDS; i++) {
+    setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
   }
   //delay(3000);
 }
@@ -571,6 +573,11 @@ void rainbowStormIntro() {
    //TODO: Play blink dagger sound
    setCloudColor(i, rainbowColors[i]); 
    delay(1000);
+  }
+  for (int i = 0; i < NUM_MINI_CLOUDS; i++) {
+   //TODO: Play blink dagger sound
+   setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]); 
+   delay(200);
   }
 }
 
@@ -617,10 +624,15 @@ void rainbowTrick1() {
   musicPlayer.stopPlaying();
   musicPlayer.startPlayingFile("rune1.mp3");
   for(int i = 0; i < NUM_CLOUDS; i++){
-    setCloudColor(i, rainbowColors[i]);
+    setCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
     delay(500);
   }
+  for(int i = 0; i < NUM_MINI_CLOUDS; i++){
+    setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
+    FastLED.show();
+    delay(250);
+  }  
   delay(5000);
   
   trickConclusion();
@@ -650,6 +662,29 @@ void rainbowTrick2() {
           
     }
   }
+  musicPlayer.startPlayingFile("rune2.mp3");
+  for(int i = 0; i < NUM_MINI_CLOUDS; i++){
+    setMiniCloudColor(i - 1, TRAIL_LIGHTING_COLOR);
+    setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
+    FastLED.show();
+    switch(i) {
+      case 0: delay(200);
+              break;
+      case 1: delay(200);
+              break;
+      case 2: delay(200);
+              break;
+      case 3: delay(400);
+              break;
+      case 4: delay(400);
+              break;
+      case 5: delay(200);
+              break;
+      case 6: delay(200);
+              break;              
+          
+    }
+  }  
   setCloudColor(NUM_CLOUDS -1, TRAIL_LIGHTING_COLOR);
   trickInProgress = false;
 
@@ -660,6 +695,7 @@ void rainbowTrick3() {
   musicPlayer.startPlayingFile("rune3.mp3");
   for(int i = 0; i < NUM_CLOUDS * 2; i++){
     setCloudColor(random(0,NUM_CLOUDS), rainbowColors[i % NUM_RAINBOW_COLORS]);
+    setMiniCloudColor(random(0,NUM_MINI_CLOUDS), rainbowColors[i % NUM_RAINBOW_COLORS]);
     FastLED.show();
     delay(250);
   }
@@ -936,6 +972,9 @@ void dimClouds(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i].fadeLightBy(factor);
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    miniCloudLeds[i].fadeLightBy(factor);
+  }  
   FastLED.show();
   delay(wait);
 }
@@ -943,6 +982,9 @@ void dimClouds(int factor, int wait) {
 void dimCloudsToBlack(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i].fadeToBlackBy(factor);
+  }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    miniCloudLeds[i].fadeToBlackBy(factor);
   }
   FastLED.show();
   delay(wait);
