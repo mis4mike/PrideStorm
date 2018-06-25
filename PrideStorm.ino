@@ -994,6 +994,9 @@ void brightenClouds(int factor, int wait) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     cloudLeds[i] += cloudLeds[i].fadeLightBy(factor);
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    miniCloudLeds[i] += miniCloudLeds[i].fadeLightBy(factor);
+  }
   FastLED.show();
   delay(wait);
 }
@@ -1006,7 +1009,7 @@ void flickerClouds(int probability) {
       cloudLeds[i] = 0x202020;
     }
   }
-    for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
       miniCloudLeds[i] = CRGB::WhiteSmoke; 
     } else {
@@ -1023,6 +1026,13 @@ void flickerCloudsColors(int probability) {
       cloudLeds[i] = 0x202020;
     }
   }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      miniCloudLeds[i] = rainbowColors[random(0,5)]; 
+    } else {
+      cloudLeds[i] = 0x202020;
+    }
+  }
 }
 
 void flickerCloudsColorsPersistent(int probability) {  
@@ -1030,6 +1040,11 @@ void flickerCloudsColorsPersistent(int probability) {
   for(int i = 0; i < NUM_CLOUD_LEDS; i++) {
     if(random(0,probability) == 0) {
       cloudLeds[i] = rainbowColors[random(0,5)]; 
+    }
+  }
+  for(int i = 0; i < NUM_MINI_CLOUD_LEDS; i++) {
+    if(random(0,probability) == 0) {
+      miniCloudLeds[i] = rainbowColors[random(0,5)]; 
     }
   }
 }
