@@ -93,7 +93,7 @@ Adafruit_VS1053_FilePlayer musicPlayer =
 
 //For fire animations
 #define NUM_FLAME_PALETTES 5
-#define COOLING  55
+#define COOLING  25
 #define SPARKING 120
 
 //CRGB clouds[NUM_CLOUDS * LEDS_PER_CLOUD];
@@ -114,7 +114,7 @@ struct CRGB miniCloudLeds[NUM_MINI_CLOUD_LEDS];
 int stormCountdown = 300;
 int trickCountdown = 180;
 int currentStorm = 0;
-int currentTrick = 0;
+int currentTrick = 14;
 int currentTrickFrame = 0;
 int inputStatus = 0;
 int trickButtonExhausted = 0;
@@ -462,6 +462,8 @@ void animate() {
               break;
      case 14: flameTrick();
               break;
+     case 15: holyTrick();
+              break;
      default: fizzleTrick(60);
               currentTrick = 0;
     }    
@@ -662,7 +664,6 @@ void rainbowTrick2() {
           
     }
   }
-  musicPlayer.startPlayingFile("rune2.mp3");
   for(int i = 0; i < NUM_MINI_CLOUDS; i++){
     setMiniCloudColor(i - 1, TRAIL_LIGHTING_COLOR);
     setMiniCloudColor(i, rainbowColors[i % NUM_RAINBOW_COLORS]);
@@ -772,6 +773,17 @@ void sparkleColorsPersistentTrick() {
       trickInProgress = false;
       trickConclusion();
   }
+}
+
+void holyTrick() {
+  musicPlayer.stopPlaying();
+  musicPlayer.startPlayingFile("holy.mp3");
+  setAllCloudColors(CRGB::White);
+  FastLED.show();
+  delay(3000);
+  allSpeakersOn();
+  trickConclusion();
+  trickInProgress = false;
 }
 
 void fizzleTrick(int wait) {
